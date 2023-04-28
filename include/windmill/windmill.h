@@ -16,7 +16,7 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-
+#include "sensor_msgs/CompressedImage.h"
 typedef struct HeadInfo {
     std::string cls_layer;
     std::string dis_layer;
@@ -59,7 +59,8 @@ public:
 
     void onInit();
 
-    void receiveFromCam(const sensor_msgs::ImageConstPtr &image);
+//    void receiveFromCam(const sensor_msgs::ImageConstPtr &image);
+    void receiveFromCam(const sensor_msgs::CompressedImage &image);
 
     void resizeUniform(cv::Mat &src, cv::Mat &dst, const cv::Size &dst_size);
 
@@ -101,6 +102,6 @@ public:
     ros::Publisher flag_publisher_;
     tf2_ros::Buffer tf_buffer_;
     tf::TransformBroadcaster tf_broadcaster_;
-    int num_class_ = 1;
+    int num_class_ = 2;
     int image_size_ = 640;
 };

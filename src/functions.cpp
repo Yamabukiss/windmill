@@ -3,7 +3,7 @@
 void Windmill::onInit()
 {
     InferenceEngine::Core ie;
-    InferenceEngine::CNNNetwork model = ie.ReadNetwork("/home/yamabuki/detect_ws/src/windmill/picodet_sim_normalize.xml");
+    InferenceEngine::CNNNetwork model = ie.ReadNetwork("/home/yamabuki/detect_ws/src/windmill/picodet_sim.xml");
     // prepare input settings
     InferenceEngine::InputsDataMap inputs_map(model.getInputsInfo());
     input_name_ = inputs_map.begin()->first;
@@ -29,7 +29,7 @@ void Windmill::onInit()
     infer_request_ = network_.CreateInferRequest();
 
 //    img_subscriber_= nh_.subscribe("/hk_camera/image_raw", 1, &Windmill::receiveFromCam,this);
-    img_subscriber_= nh_.subscribe("/image_rect", 1, &Windmill::receiveFromCam,this);
+    img_subscriber_= nh_.subscribe("/hk_camera/camera/image_raw/compressed", 1, &Windmill::receiveFromCam,this);
     result_publisher_ = nh_.advertise<sensor_msgs::Image>("result_publisher", 1);
 //    direction_publisher_ = nh_.advertise<std_msgs::Int8>("direction_publisher", 1);
     pnp_publisher_ = nh_.advertise<geometry_msgs::Pose>("pnp_publisher", 1);
@@ -277,27 +277,29 @@ void Windmill::nms(std::vector<BoxInfo> &input_boxes, float NMS_THRESH) {
 
     std::sort(input_boxes.begin(), input_boxes.end(),
               [](BoxInfo a, BoxInfo b) { return a.score > b.score; });
-    std::vector<float> vArea(input_boxes.size());
-    for (int i = 0; i < int(input_boxes.size()); ++i) {
-        vArea[i] = (input_boxes.at(i).x3 - input_boxes.at(i).x1 + 1) *
-                   (input_boxes.at(i).y3 - input_boxes.at(i).y1 + 1);
-    }
-    for (int i = 0; i < int(input_boxes.size()); ++i) {
-        for (int j = i + 1; j < int(input_boxes.size());) {
-            float xx1 = (std::max)(input_boxes[i].x1, input_boxes[j].x1);
-            float yy1 = (std::max)(input_boxes[i].y1, input_boxes[j].y1);
-            float xx2 = (std::min)(input_boxes[i].x3, input_boxes[j].x3);
-            float yy2 = (std::min)(input_boxes[i].y3, input_boxes[j].y3);
-            float w = (std::max)(float(0), xx2 - xx1 + 1);
-            float h = (std::max)(float(0), yy2 - yy1 + 1);
-            float inter = w * h;
-            float ovr = inter / (vArea[i] + vArea[j] - inter);
-            if (ovr >= NMS_THRESH) {
-                input_boxes.erase(input_boxes.begin() + j);
-                vArea.erase(vArea.begin() + j);
-            } else {
-                j++;
-            }
-        }
-    }
+    if (input_boxes.size() > 1)
+        input_boxes.erase(input_boxes.begin()+1,input_boxes.end());
+//    std::vector<float> vArea(input_boxes.size());
+//    for (int i = 0; i < int(input_boxes.size()); ++i) {
+//        vArea[i] = (input_boxes.at(i).x3 - input_boxes.at(i).x1 + 1) *
+//                   (input_boxes.at(i).y3 - input_boxes.at(i).y1 + 1);
+//    }
+//    for (int i = 0; i < int(input_boxes.size()); ++i) {
+//        for (int j = i + 1; j < int(input_boxes.size());) {
+//            float xx1 = (std::max)(input_boxes[i].x1, input_boxes[j].x1);
+//            float yy1 = (std::max)(input_boxes[i].y1, input_boxes[j].y1);
+//            float xx2 = (std::min)(input_boxes[i].x3, input_boxes[j].x3);
+//            float yy2 = (std::min)(input_boxes[i].y3, input_boxes[j].y3);
+//            float w = (std::max)(float(0), xx2 - xx1 + 1);
+//            float h = (std::max)(float(0), yy2 - yy1 + 1);
+//            float inter = w * h;
+//            float ovr = inter / (vArea[i] + vArea[j] - inter);
+//            if (ovr >= NMS_THRESH) {
+//                input_boxes.erase(input_boxes.begin() + j);
+//                vArea.erase(vArea.begin() + j);
+//            } else {
+//                j++;
+//            }
+//        }
+//    }
 }
