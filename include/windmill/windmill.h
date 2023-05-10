@@ -5,18 +5,15 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <sensor_msgs/Image.h>
-#include <std_msgs/Int8.h>
 #include <ros/ros.h>
 #include <cv_bridge/cv_bridge.h>
 #include <dynamic_reconfigure/server.h>
 #include <windmill/dynamicConfig.h>
-#include <std_msgs/Int8.h>
-#include <tf/tf.h>
-#include <tf/transform_broadcaster.h>
-#include <tf2_ros/transform_listener.h>
-#include <tf2_ros/transform_broadcaster.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include "sensor_msgs/CompressedImage.h"
+#include <sensor_msgs/CompressedImage.h>
+#include <thread>
+#include <rm_msgs/TargetDetection.h>
+#include <rm_msgs/TargetDetectionArray.h>
+#include <ros/package.h>
 typedef struct HeadInfo {
     std::string cls_layer;
     std::string dis_layer;
@@ -54,15 +51,18 @@ public:
             {"transpose_6.tmp_0", "transpose_7.tmp_0", 64},
     };
 
-    std::vector<BoxInfo> detect(cv::Mat image, double score_threshold,
-                                double nms_threshold);
+    void detect(cv::Mat image, double score_threshold);
 
     void onInit();
 
+    void modelProcess(const cv::Mat& image);
+    void cvProcess(const cv::Mat& image);
+    void threading();
 //    void receiveFromCam(const sensor_msgs::ImageConstPtr &image);
-    void receiveFromCam(const sensor_msgs::CompressedImage &image);
+    void receiveFromCam(const sensor_msgs::ImageConstPtr &image);
 
-    void resizeUniform(cv::Mat &src, cv::Mat &dst, const cv::Size &dst_size);
+
+    void resizeUniform(const cv::Mat &src, cv::Mat &dst, const cv::Size &dst_size);
 
     void drawBboxes(const cv::Mat &bgr, const std::vector<BoxInfo> &bboxes);
 
@@ -77,7 +77,7 @@ public:
     BoxInfo disPred2Bbox(const float *&box_det, int label, double score, int x,
                          int y, int stride);
 
-    static void nms(std::vector<BoxInfo> &result, float nms_threshold);
+    static void nms(std::vector<BoxInfo> &result);
 
 
     void getPnP(const std::vector<cv::Point2f> &added_weights_points,int label);
@@ -86,22 +86,22 @@ public:
     dynamic_reconfigure::Server<windmill::dynamicConfig>::CallbackType callback_;
     double nms_thresh_;
     double score_thresh_;
-    cv::Mat_<double> camera_matrix_;
-    cv::Mat_<double> camera_matrix2_;
-    cv::Mat_<double> distortion_coefficients_;
-    cv::Mat_<double> rvec_;
-    cv::Mat_<double> tvec_;
-    cv::Mat_<double> rotate_mat_;
-    std::vector<cv::Point3f> object_points_;
+    double hull_bias_;
+    int threshold_;
+    int min_area_threshold_;
+    int max_area_threshold_;
+    std::vector<cv::Point> r_hull_;
+    std::vector<BoxInfo> box_result_vec_;
+    std::vector<std::vector<cv::Point>> hull_vec_;
     std::string input_name_;
     cv_bridge::CvImagePtr cv_image_;
     ros::NodeHandle nh_;
     ros::Subscriber img_subscriber_;
     ros::Publisher result_publisher_;
-    ros::Publisher pnp_publisher_;
-    ros::Publisher flag_publisher_;
-    tf2_ros::Buffer tf_buffer_;
-    tf::TransformBroadcaster tf_broadcaster_;
-    int num_class_ = 2;
-    int image_size_ = 640;
+    ros::Publisher binary_publisher_;
+    ros::Publisher point_publisher_;
+    bool windmill_work_signal_;
+    int num_class_ = 4;
+    int image_size_ = 320;
+    std::mutex mutex_;
 };

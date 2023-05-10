@@ -11,6 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
         nodelet
         pluginlib
         tf
+        rm_msgs
+        roslib
         )
 
 generate_dynamic_reconfigure_options(
@@ -32,11 +34,10 @@ include_directories(
 
 catkin_package(
         INCLUDE_DIRS include
-        CATKIN_DEPENDS roscpp dynamic_reconfigure std_msgs cv_bridge dynamic_reconfigure
+        CATKIN_DEPENDS roscpp dynamic_reconfigure std_msgs cv_bridge dynamic_reconfigure rm_msgs
         LIBRARIES ${PROJECT_NAME}
 )
 
-# Declare a C++ library
 add_executable(${PROJECT_NAME} src/functions.cpp src/windmill.cpp)
 
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_gencfg)

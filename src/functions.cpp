@@ -3,7 +3,7 @@
 void Windmill::onInit()
 {
     InferenceEngine::Core ie;
-    InferenceEngine::CNNNetwork model = ie.ReadNetwork("/home/yamabuki/detect_ws/src/windmill/picodet_sim.xml");
+    InferenceEngine::CNNNetwork model = ie.ReadNetwork(ros::package::getPath("windmill")+"/s_320.xml");
     // prepare input settings
     InferenceEngine::InputsDataMap inputs_map(model.getInputsInfo());
     input_name_ = inputs_map.begin()->first;
@@ -28,24 +28,37 @@ void Windmill::onInit()
     network_ = ie.LoadNetwork(model, "CPU",config);
     infer_request_ = network_.CreateInferRequest();
 
-//    img_subscriber_= nh_.subscribe("/hk_camera/image_raw", 1, &Windmill::receiveFromCam,this);
-    img_subscriber_= nh_.subscribe("/hk_camera/camera/image_raw/compressed", 1, &Windmill::receiveFromCam,this);
-    result_publisher_ = nh_.advertise<sensor_msgs::Image>("result_publisher", 1);
-//    direction_publisher_ = nh_.advertise<std_msgs::Int8>("direction_publisher", 1);
-    pnp_publisher_ = nh_.advertise<geometry_msgs::Pose>("pnp_publisher", 1);
-    flag_publisher_ = nh_.advertise<std_msgs::Int8>("flag_publisher", 1);
-
+    img_subscriber_= nh_.subscribe("/hk_camera/image_raw", 1, &Windmill::receiveFromCam,this);
+//    img_subscriber_= nh_.subscribe("/image_rect", 1, &Windmill::receiveFromCam,this);
+    result_publisher_ = nh_.advertise<sensor_msgs::Image>("/result_publisher", 1);
+    binary_publisher_ = nh_.advertise<sensor_msgs::Image>("/binary_publisher", 1);
+    point_publisher_ = nh_.advertise<rm_msgs::TargetDetectionArray>("/prediction", 1);
     callback_ = boost::bind(&Windmill::dynamicCallback, this, _1);
     server_.setCallback(callback_);
-    object_points_.emplace_back(cv::Point3f(-0.135,-0.135,0));
-    object_points_.emplace_back(cv::Point3f(0.135,-0.135,0));
-    object_points_.emplace_back(cv::Point3f(0.135,0.135,0));
-    object_points_.emplace_back(cv::Point3f(-0.135,0.135,0));
-    distortion_coefficients_ =(cv::Mat_<double>(1,5)<<-0.066342, 0.081260, -0.000165, 0.000870, 0.000000);
-    camera_matrix_=(cv::Mat_<double>(3,3)<<801.64373,    0.     ,  322.80906,
-            0.     , 1068.42759,  318.9301 ,
-            0.     ,    0.     ,    1.    );
-    static tf2_ros::TransformListener tfListener(tf_buffer_);
+
+
+    cv::Mat temp_r = cv::imread(ros::package::getPath("windmill")+"/r.png");
+//    cv::resize(temp_r,temp_r,cv::Size(320,320));
+    cv::Mat r;
+    cv::cvtColor(temp_r,r,CV_BGR2GRAY);
+    cv::Mat threshold_img;
+    cv::threshold(r,threshold_img,0,255,cv::THRESH_BINARY + cv::THRESH_OTSU);
+    std::vector<std::vector<cv::Point>> contours;
+    std::vector<cv::Point> hull;
+
+    cv::findContours(threshold_img,contours,cv::RETR_EXTERNAL,CV_CHAIN_APPROX_SIMPLE);
+
+    std::sort(contours.begin(),contours.end(),[]( const std::vector<cv::Point> &vec1, const std::vector<cv::Point> &vec2 ) {return cv::contourArea(vec1) > cv::contourArea(vec2);} );
+
+    cv::convexHull(contours[0],hull, true);
+
+    r_hull_ = hull;
+    windmill_work_signal_ = true;
+//    cv::polylines(temp_r,hull, true,cv::Scalar(255,0,0),2);
+
+//    cv::imshow("output", temp_r);
+//    cv::waitKey(0);
+//    cv::destroyAllWindows();
 }
 
 Windmill::Windmill() {}
@@ -54,6 +67,10 @@ void Windmill::dynamicCallback(windmill::dynamicConfig &config)
 {
     nms_thresh_=config.nms_thresh;
     score_thresh_=config.score_thresh;
+    hull_bias_=config.hull_bias;
+    min_area_threshold_=config.min_area_threshold;
+    max_area_threshold_=config.max_area_threshold;
+    threshold_=config.threshold;
     ROS_INFO("Seted Complete");
 }
 
@@ -85,96 +102,14 @@ void Windmill::preProcess(cv::Mat &image, InferenceEngine::Blob::Ptr &blob) {
     }
 }
 
-void Windmill::getPnP(const std::vector<cv::Point2f> &added_weights_points,int label)
-{
-    if(label==2 || label==3)
-    {
-        static std::vector<cv::Point2f> image_points;
-        image_points.emplace_back(added_weights_points[1]);
-        image_points.emplace_back(added_weights_points[2]);
-        image_points.emplace_back(added_weights_points[3]);
-        image_points.emplace_back(added_weights_points[4]);
-        cv::solvePnP(object_points_,image_points,camera_matrix_,distortion_coefficients_,rvec_,tvec_);
-        cv::Mat r_mat = cv::Mat_<double>(3, 3);
-
-        cv::Rodrigues(rvec_, r_mat);
-        tf::Matrix3x3 tf_rotate_matrix(r_mat.at<double>(0, 0), r_mat.at<double>(0, 1), r_mat.at<double>(0, 2),
-                                       r_mat.at<double>(1, 0), r_mat.at<double>(1, 1), r_mat.at<double>(1, 2),
-                                       r_mat.at<double>(2, 0), r_mat.at<double>(2, 1), r_mat.at<double>(2, 2));
-
-        tf::Quaternion quaternion;
-        double r;
-        double p;
-        double y;
-
-        static geometry_msgs::Pose  pose;
-
-        pose.position.x=tvec_.at<double>(0,0);
-        pose.position.y=tvec_.at<double>(0,1);
-        pose.position.z=tvec_.at<double>(0,2);
-
-        tf_rotate_matrix.getRPY(r, p, y);
-        quaternion.setRPY(r,p,y);
-        pose.orientation.x=quaternion.x();
-        pose.orientation.y=quaternion.y();
-        pose.orientation.z=quaternion.z();
-        pose.orientation.w=quaternion.w();
-
-        pnp_publisher_.publish(pose);
-
-        geometry_msgs::TransformStamped pose_in , pose_out;
-
-        tf2::Quaternion tf_quaternion;
-        tf_quaternion.setRPY(y,p,r);
-        geometry_msgs::Quaternion quat_msg = tf2::toMsg(tf_quaternion);
-
-        pose_in.transform.rotation.x = quat_msg.x;
-        pose_in.transform.rotation.y = quat_msg.y;
-        pose_in.transform.rotation.z = quat_msg.z;
-        pose_in.transform.rotation.w = quat_msg.w;
-
-        tf2::doTransform(pose_in, pose_out, tf_buffer_.lookupTransform("camera_optical_frame", "base_link", ros::Time(0)));
-
-        pose_out.transform.translation.x = pose.position.x;
-        pose_out.transform.translation.y = pose.position.y;
-        pose_out.transform.translation.z = pose.position.z;
-
-        tf::Transform transform;
-
-        transform.setOrigin(tf::Vector3(pose_out.transform.translation.x, pose_out.transform.translation.y,
-                                        pose_out.transform.translation.z));
-        transform.setRotation(tf::Quaternion(pose_out.transform.rotation.x, pose_out.transform.rotation.y,
-                                             pose_out.transform.rotation.z, pose_out.transform.rotation.w));
-//        transform.setRotation(tf::Quaternion(pose.orientation.x, pose.orientation.y,
-//                                             pose.orientation.z, pose.orientation.w));
-
-        tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "camera_optical_frame", "exchanger"));
-//        flag_.data = 1;
-//        flag_publisher_.publish(flag_);
-        image_points.clear();
-    }
-    else
-    {
-        tf::Transform transform;
-        transform.setOrigin(tf::Vector3(2,2,2));
-        transform.setRotation(tf::Quaternion(0,0,0,1));
-        tf_broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "camera_optical_frame", "exchanger"));
-//        flag_.data = 0;
-//        flag_publisher_.publish(flag_);
-
-    }
-}
-
-
-std::vector<BoxInfo> Windmill::detect(cv::Mat image, double score_threshold,
-                                     double nms_threshold) {
+void Windmill::detect(cv::Mat image, double score_threshold) {
     InferenceEngine::Blob::Ptr input_blob = infer_request_.GetBlob(input_name_);
 
     preProcess(image, input_blob);
 
     // do inference
-    infer_request_.Infer();
-//    infer_request_.Wait(InferenceEngine::IInferRequest::WaitMode::RESULT_READY);
+    infer_request_.StartAsync();
+    infer_request_.Wait(InferenceEngine::IInferRequest::WaitMode::RESULT_READY);
 
     // get output
     std::vector<std::vector<BoxInfo>> results;
@@ -199,15 +134,18 @@ std::vector<BoxInfo> Windmill::detect(cv::Mat image, double score_threshold,
                           results);
     }
 
-    std::vector<BoxInfo> dets;
+//    std::vector<BoxInfo> dets;
+    if (!box_result_vec_.empty())
+        box_result_vec_.clear();
+
     for (int i = 0; i < (int)results.size(); i++) {
-        this->nms(results[i], nms_threshold);
+        this->nms(results[i]);
 
         for (auto &box : results[i]) {
-            dets.push_back(box);
+            box_result_vec_.push_back(box);
         }
     }
-    return dets;
+//    return dets;
 }
 
 void Windmill::decodeInfer(const float *&cls_pred, const float *&dis_pred,
@@ -236,8 +174,9 @@ void Windmill::decodeInfer(const float *&cls_pred, const float *&dis_pred,
     }
 }
 
-void Windmill::resizeUniform(cv::Mat &src, cv::Mat &dst, const cv::Size &dst_size){
-    if (src.cols==dst_size.width && src.rows==dst_size.height) dst = src.clone();
+void Windmill::resizeUniform(const cv::Mat &src, cv::Mat &dst, const cv::Size &dst_size){
+    if (src.cols==dst_size.width && src.rows==dst_size.height)
+        dst = src.clone();
     else
     {
         int dst_w = dst_size.width;
@@ -273,33 +212,10 @@ BoxInfo Windmill::disPred2Bbox(const float *&box_det, int label, double score,
     return BoxInfo{x1 , y1 , x2 , y2 , x3 , y3 , x4 , y4 , score , label };
 }
 
-void Windmill::nms(std::vector<BoxInfo> &input_boxes, float NMS_THRESH) {
+void Windmill::nms(std::vector<BoxInfo> &input_boxes) {
 
     std::sort(input_boxes.begin(), input_boxes.end(),
               [](BoxInfo a, BoxInfo b) { return a.score > b.score; });
     if (input_boxes.size() > 1)
         input_boxes.erase(input_boxes.begin()+1,input_boxes.end());
-//    std::vector<float> vArea(input_boxes.size());
-//    for (int i = 0; i < int(input_boxes.size()); ++i) {
-//        vArea[i] = (input_boxes.at(i).x3 - input_boxes.at(i).x1 + 1) *
-//                   (input_boxes.at(i).y3 - input_boxes.at(i).y1 + 1);
-//    }
-//    for (int i = 0; i < int(input_boxes.size()); ++i) {
-//        for (int j = i + 1; j < int(input_boxes.size());) {
-//            float xx1 = (std::max)(input_boxes[i].x1, input_boxes[j].x1);
-//            float yy1 = (std::max)(input_boxes[i].y1, input_boxes[j].y1);
-//            float xx2 = (std::min)(input_boxes[i].x3, input_boxes[j].x3);
-//            float yy2 = (std::min)(input_boxes[i].y3, input_boxes[j].y3);
-//            float w = (std::max)(float(0), xx2 - xx1 + 1);
-//            float h = (std::max)(float(0), yy2 - yy1 + 1);
-//            float inter = w * h;
-//            float ovr = inter / (vArea[i] + vArea[j] - inter);
-//            if (ovr >= NMS_THRESH) {
-//                input_boxes.erase(input_boxes.begin() + j);
-//                vArea.erase(vArea.begin() + j);
-//            } else {
-//                j++;
-//            }
-//        }
-//    }
 }
