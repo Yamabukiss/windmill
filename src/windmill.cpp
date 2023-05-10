@@ -11,7 +11,7 @@ void Windmill::drawBboxes(const cv::Mat &bgr, const std::vector<BoxInfo> &bboxes
     {
         for (size_t i = 0; i < bboxes.size(); i++) {
             const BoxInfo &bbox = bboxes[i];
-            if (bbox.label==1 || bbox.label==3) continue;
+//            if (bbox.label==1 || bbox.label==3) continue;
             cv::Point2f center ((bbox.x1+bbox.x2+bbox.x3+bbox.x4)/4*width_ratio,(bbox.y1+bbox.y2+bbox.y3+bbox.y4)/4*height_ratio);
 
             std::vector<cv::Point2f> points_vec;
@@ -29,6 +29,7 @@ void Windmill::drawBboxes(const cv::Mat &bgr, const std::vector<BoxInfo> &bboxes
             cv::line(bgr,points_vec[4],points_vec[1],color,1);
             cv::circle(bgr,points_vec[0],3,color,2);
             cv::putText(bgr,label_array[bbox.label],cv::Point2f(std::max(float(0),points_vec[1].x-10),std::max(points_vec[1].y-10,float(0))),cv::FONT_HERSHEY_SCRIPT_SIMPLEX,1,color,2);
+//            cv::putText(bgr,std::to_string(bbox.score),cv::Point2f(std::max(float(0),points_vec[1].x-10),std::max(points_vec[1].y-10,float(0))),cv::FONT_HERSHEY_SCRIPT_SIMPLEX,1,color,2);
         }
     }
 

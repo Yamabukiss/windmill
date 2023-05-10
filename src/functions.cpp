@@ -3,7 +3,7 @@
 void Windmill::onInit()
 {
     InferenceEngine::Core ie;
-    InferenceEngine::CNNNetwork model = ie.ReadNetwork(ros::package::getPath("windmill")+"/s_320.xml");
+    InferenceEngine::CNNNetwork model = ie.ReadNetwork(ros::package::getPath("windmill")+"/s_416.xml");
     // prepare input settings
     InferenceEngine::InputsDataMap inputs_map(model.getInputsInfo());
     input_name_ = inputs_map.begin()->first;
@@ -61,7 +61,7 @@ void Windmill::onInit()
 //    cv::destroyAllWindows();
 }
 
-Windmill::Windmill() {}
+Windmill::Windmill() = default;
 
 void Windmill::dynamicCallback(windmill::dynamicConfig &config)
 {
@@ -73,9 +73,6 @@ void Windmill::dynamicCallback(windmill::dynamicConfig &config)
     threshold_=config.threshold;
     ROS_INFO("Seted Complete");
 }
-
-
-Windmill::~Windmill() {}
 
 void Windmill::preProcess(cv::Mat &image, InferenceEngine::Blob::Ptr &blob) {
     int img_w = image.cols;
@@ -213,9 +210,21 @@ BoxInfo Windmill::disPred2Bbox(const float *&box_det, int label, double score,
 }
 
 void Windmill::nms(std::vector<BoxInfo> &input_boxes) {
+    for (auto it = input_boxes.begin(); it != input_boxes.end();)
+    {
+        if (it->label == 1 || it->label == 3)
+        {
+            it = input_boxes.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
 
     std::sort(input_boxes.begin(), input_boxes.end(),
               [](BoxInfo a, BoxInfo b) { return a.score > b.score; });
     if (input_boxes.size() > 1)
         input_boxes.erase(input_boxes.begin()+1,input_boxes.end());
 }
+Windmill::~Windmill() = default;

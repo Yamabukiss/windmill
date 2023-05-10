@@ -79,19 +79,19 @@ public:
 
     static void nms(std::vector<BoxInfo> &result);
 
-
     void getPnP(const std::vector<cv::Point2f> &added_weights_points,int label);
 
     dynamic_reconfigure::Server<windmill::dynamicConfig> server_;
     dynamic_reconfigure::Server<windmill::dynamicConfig>::CallbackType callback_;
-    double nms_thresh_;
-    double score_thresh_;
-    double hull_bias_;
-    int threshold_;
-    int min_area_threshold_;
-    int max_area_threshold_;
+    double nms_thresh_{};
+    double score_thresh_{};
+    double hull_bias_{};
+    int threshold_{};
+    int min_area_threshold_{};
+    int max_area_threshold_{};
     std::vector<cv::Point> r_hull_;
     std::vector<BoxInfo> box_result_vec_;
+    std::vector<BoxInfo> prev_box_result_vec_;
     std::vector<std::vector<cv::Point>> hull_vec_;
     std::string input_name_;
     cv_bridge::CvImagePtr cv_image_;
@@ -100,8 +100,8 @@ public:
     ros::Publisher result_publisher_;
     ros::Publisher binary_publisher_;
     ros::Publisher point_publisher_;
-    bool windmill_work_signal_;
+    bool windmill_work_signal_{};
     int num_class_ = 4;
-    int image_size_ = 320;
+    int image_size_ = 416;
     std::mutex mutex_;
 };
