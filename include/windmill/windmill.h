@@ -79,6 +79,9 @@ public:
 
     static void nms(std::vector<BoxInfo> &result);
 
+    void getAngle(int r_x, int r_y);
+    void resetKalmanFilter();
+
     void getPnP(const std::vector<cv::Point2f> &added_weights_points,int label);
 
     dynamic_reconfigure::Server<windmill::dynamicConfig> server_;
@@ -86,10 +89,22 @@ public:
     double nms_thresh_{};
     double score_thresh_{};
     double hull_bias_{};
+    double prev_time_stamp_;
+    double cur_time_stamp_;
+    int process_noise_;
+    int measurement_noise_;
+    double mean_radian_;
+    double radian_scale_;
     int threshold_{};
     int min_area_threshold_{};
     int max_area_threshold_{};
-    std::vector<cv::Point> r_hull_;
+    int prev_mean_x_;
+    int prev_mean_y_;
+    bool object_loss_;
+    bool windmill_work_signal_;
+    cv::KalmanFilter kalman_filter_;
+    cv::Mat measurement_;
+    std::vector<cv::Point> r_contour_;
     std::vector<BoxInfo> box_result_vec_;
     std::vector<BoxInfo> prev_box_result_vec_;
     std::vector<std::vector<cv::Point>> hull_vec_;
@@ -100,7 +115,6 @@ public:
     ros::Publisher result_publisher_;
     ros::Publisher binary_publisher_;
     ros::Publisher point_publisher_;
-    bool windmill_work_signal_{};
     int num_class_ = 4;
     int image_size_ = 416;
     std::mutex mutex_;

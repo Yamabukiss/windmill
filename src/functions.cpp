@@ -52,13 +52,20 @@ void Windmill::onInit()
 
     cv::convexHull(contours[0],hull, true);
 
-    r_hull_ = hull;
-    windmill_work_signal_ = true;
-//    cv::polylines(temp_r,hull, true,cv::Scalar(255,0,0),2);
+    cv::KalmanFilter kf(2,1,0);
+    kf.transitionMatrix = (cv::Mat_<float>(2, 2) << 1, 1, 0, 1);
+    cv::setIdentity(kf.measurementMatrix);
+    cv::setIdentity(kf.processNoiseCov, cv::Scalar::all(1e-5));
+    cv::setIdentity(kf.measurementNoiseCov, cv::Scalar::all(1e-2));
+    cv::setIdentity(kf.errorCovPost, cv::Scalar::all(1));
 
-//    cv::imshow("output", temp_r);
-//    cv::waitKey(0);
-//    cv::destroyAllWindows();
+    measurement_ = cv::Mat::zeros(1, 1, CV_32F);
+    kalman_filter_ = kf;
+    r_contour_ = contours[0];
+
+    prev_time_stamp_ = -1;
+    object_loss_ = true;
+    windmill_work_signal_ = true;
 }
 
 Windmill::Windmill() = default;
@@ -71,7 +78,16 @@ void Windmill::dynamicCallback(windmill::dynamicConfig &config)
     min_area_threshold_=config.min_area_threshold;
     max_area_threshold_=config.max_area_threshold;
     threshold_=config.threshold;
+    process_noise_=config.process_noise;
+    measurement_noise_=config.measurement_noise;
+    radian_scale_=config.radian_scale;
+
+    cv::setIdentity(kalman_filter_.processNoiseCov, cv::Scalar::all(pow(10, -process_noise_)));
+    cv::setIdentity(kalman_filter_.measurementNoiseCov, cv::Scalar::all(pow(10, -measurement_noise_)));
+
     ROS_INFO("Seted Complete");
+    ROS_INFO("process noise: %lf",pow(10, -process_noise_));
+    ROS_INFO("measure noise: %lf",pow(10, -measurement_noise_));
 }
 
 void Windmill::preProcess(cv::Mat &image, InferenceEngine::Blob::Ptr &blob) {
@@ -227,4 +243,81 @@ void Windmill::nms(std::vector<BoxInfo> &input_boxes) {
     if (input_boxes.size() > 1)
         input_boxes.erase(input_boxes.begin()+1,input_boxes.end());
 }
+
+void Windmill::resetKalmanFilter()
+{
+    kalman_filter_.statePost.at<float>(0) = 0;
+    kalman_filter_.statePost.at<float>(1) = 0;
+    cv::setIdentity(kalman_filter_.errorCovPost, cv::Scalar::all(1));
+
+}
+
+void Windmill::getAngle(int r_x, int r_y)
+{
+    static float width_ratio = (float)cv_image_->image.cols / (float)image_size_;
+    static float height_ratio = (float)cv_image_->image.rows / (float)image_size_;
+    int mean_x = static_cast<int>( (box_result_vec_[0].x1 + box_result_vec_[0].x2 + box_result_vec_[0].x3 + box_result_vec_[0].x4 )/4 * width_ratio );
+    int mean_y = static_cast<int>( (box_result_vec_[0].y1 + box_result_vec_[0].y2 + box_result_vec_[0].y3 + box_result_vec_[0].y4 )/4 * height_ratio ) ;
+
+    if (object_loss_)
+    {
+//        if (prev_time_stamp_ > 0 && mean_radian_ != 0)
+        if (prev_time_stamp_ > 0)
+            resetKalmanFilter();
+    }
+    else
+    {
+        int cur_vec_x = mean_x - r_x;
+        int cur_vec_y = mean_y - r_y;
+
+        int prev_vec_x = prev_mean_x_ - r_x;
+        int prev_vec_y = prev_mean_y_ - r_y;
+        double cos_theta = (cur_vec_x * prev_vec_x + cur_vec_y * prev_vec_y) / (sqrt(pow(cur_vec_x, 2) + pow(cur_vec_y, 2)) * sqrt(pow(prev_vec_x, 2) + pow(prev_vec_y, 2))) ;
+        double radian = acos(cos_theta) * radian_scale_;
+
+        kalman_filter_.statePost.at<float>(1) = radian;
+
+        cv::Mat prediction = kalman_filter_.predict();
+
+        measurement_.at<float>(0) = radian;
+        kalman_filter_.correct(measurement_);
+
+        double predict_radian = kalman_filter_.statePost.at<float>(0);
+        int predict_vec_x = cos(predict_radian) * cur_vec_x  - sin(predict_radian) * cur_vec_y + r_x;
+        int predict_vec_y = cos(predict_radian) * cur_vec_y  + sin(predict_radian) * cur_vec_x + r_y;
+
+        if (predict_vec_x < 0)
+        {
+            resetKalmanFilter();
+            kalman_filter_.statePost.at<float>(1) = radian;
+
+            prediction = kalman_filter_.predict();
+
+            measurement_.at<float>(0) = radian;
+            kalman_filter_.correct(measurement_);
+            predict_radian = kalman_filter_.statePost.at<float>(0);
+            predict_vec_x = cos(predict_radian) * cur_vec_x  - sin(predict_radian) * cur_vec_y + r_x;
+            predict_vec_y = cos(predict_radian) * cur_vec_y  + sin(predict_radian) * cur_vec_x + r_y;
+        }
+
+//        if (mean_radian_ == 0)
+//            mean_radian_ +=  radian;
+//        else
+//        {
+//            mean_radian_ += radian;
+//            mean_radian_ /= 2;
+//        }
+        cv::circle(cv_image_->image,cv::Point (predict_vec_x, predict_vec_y),8,cv::Scalar (255,0,255),2);
+
+        int new_vec_x = cos(radian) * cur_vec_x  - sin(radian) * cur_vec_y + r_x;
+        int new_vec_y = cos(radian) * cur_vec_y  + sin(radian) * cur_vec_x + r_y;
+        cv::circle(cv_image_->image,cv::Point (new_vec_x, new_vec_y),3,cv::Scalar (255,255,0),2);
+
+    }
+
+    prev_mean_x_ = mean_x;
+    prev_mean_y_ = mean_y;
+
+}
+
 Windmill::~Windmill() = default;

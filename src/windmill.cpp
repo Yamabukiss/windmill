@@ -64,7 +64,7 @@ void Windmill::cvProcess(const cv::Mat& image)
         std::vector<cv::Point> hull;
         cv::convexHull(contour,hull, true);
         bool area_judge = cv::contourArea(hull) >= min_area_threshold_ && cv::contourArea(hull) < max_area_threshold_;
-        if (cv::matchShapes(hull,r_hull_,cv::CONTOURS_MATCH_I2,0) <= hull_bias_ && area_judge)
+        if (cv::matchShapes(contour,r_contour_,cv::CONTOURS_MATCH_I2,0) <= hull_bias_ && area_judge)
         {
 //            cv::polylines(cv_image_->image,hull, true,cv::Scalar(0,255,0),2);
             hull_vec_.push_back(hull);
@@ -92,50 +92,38 @@ void Windmill::threading()
 
     if (!hull_vec_.empty())
     {
-        std::sort(hull_vec_.begin(), hull_vec_.end(), [&](const auto &v1, const auto &v2){return cv::matchShapes(v1,r_hull_,cv::CONTOURS_MATCH_I2,0) < cv::matchShapes(v2,r_hull_,cv::CONTOURS_MATCH_I2,0);});
+        std::sort(hull_vec_.begin(), hull_vec_.end(), [&](const auto &v1, const auto &v2){return cv::matchShapes(v1,r_contour_,cv::CONTOURS_MATCH_I2,0) < cv::matchShapes(v2,r_contour_,cv::CONTOURS_MATCH_I2,0);});
         cv::polylines(cv_image_->image,hull_vec_[0], true,cv::Scalar(0,255,0),2);
         auto moment = cv::moments(hull_vec_[0]);
         int cx = int(moment.m10 / moment.m00);
         int cy = int(moment.m01/  moment.m00);
 //        data.data.emplace_back(cx);
 //        data.data.emplace_back(cy);
-        r_array[0] = static_cast<int32_t>(cx) * 1440 / image_size_;;
-        r_array[1] = static_cast<int32_t>(cy) * 1080 / image_size_;;
-    }
-    else
-        for (int i = 0; i < 2; i++)
-            r_array[i] = 0;
+        r_array[0] = static_cast<int32_t>(cx) * 1440 / image_size_;
+        r_array[1] = static_cast<int32_t>(cy) * 1080 / image_size_;
 
-    BoxInfo tmp_box;
-    double max_score = 0;
-
-    for (size_t i = 0; i < box_result_vec_.size(); i++)
-    {
-        const BoxInfo &bbox = box_result_vec_[i];
-        if (bbox.label==1 || bbox.label==3) continue;
-        if (bbox.score > max_score)
+        if (!box_result_vec_.empty())
         {
-            max_score = bbox.score;
-            tmp_box = bbox;
+            getAngle(cx, cy);
+
+            if (object_loss_)
+                object_loss_ = false;
+
+            poly_array[0] = static_cast<int32_t>(box_result_vec_[0].x1) * 1440 / image_size_;
+            poly_array[1] = static_cast<int32_t>(box_result_vec_[0].y1) * 1080 / image_size_;
+            poly_array[2] = static_cast<int32_t>(box_result_vec_[0].x4) * 1440 / image_size_;
+            poly_array[3] = static_cast<int32_t>(box_result_vec_[0].y4) * 1080 / image_size_;
+            poly_array[4] = static_cast<int32_t>(box_result_vec_[0].x3) * 1440 / image_size_;
+            poly_array[5] = static_cast<int32_t>(box_result_vec_[0].y3) * 1080 / image_size_;
+            poly_array[6] = static_cast<int32_t>(box_result_vec_[0].x2) * 1440 / image_size_;
+            poly_array[7] = static_cast<int32_t>(box_result_vec_[0].y2) * 1080 / image_size_;
         }
+
+        else
+            object_loss_ = true;
     }
 
-    if (max_score!=0)
-    {
-        poly_array[0] = static_cast<int32_t>(tmp_box.x1) * 1440 / image_size_;
-        poly_array[1] = static_cast<int32_t>(tmp_box.y1) * 1080 / image_size_;
-        poly_array[2] = static_cast<int32_t>(tmp_box.x4) * 1440 / image_size_;
-        poly_array[3] = static_cast<int32_t>(tmp_box.y4) * 1080 / image_size_;
-        poly_array[4] = static_cast<int32_t>(tmp_box.x3) * 1440 / image_size_;
-        poly_array[5] = static_cast<int32_t>(tmp_box.y3) * 1080 / image_size_;
-        poly_array[6] = static_cast<int32_t>(tmp_box.x2) * 1440 / image_size_;
-        poly_array[7] = static_cast<int32_t>(tmp_box.y2) * 1080 / image_size_;
-    }
-    else
-        for (int i = 0; i < 8; i++)
-            poly_array[i] = 0;
-
-    data.id = 66;
+    data.id = 10;
 
     memcpy(&data.pose.orientation.x, &poly_array[0],sizeof (int32_t) * 2);
     memcpy(&data.pose.orientation.y, &poly_array[2],sizeof (int32_t) * 2);
@@ -156,6 +144,7 @@ void Windmill::threading()
 //void Windmill::receiveFromCam(const sensor_msgs::ImageConstPtr& image)
 void Windmill::receiveFromCam(const sensor_msgs::ImageConstPtr& msg)
 {
+    cur_time_stamp_ = ros::Time::now().toSec();
     if (!windmill_work_signal_)
         return;
 //    cv_image_ = cv_bridge::toCvCopy(msg,sensor_msgs::image_encodings::RGB8);
@@ -163,7 +152,7 @@ void Windmill::receiveFromCam(const sensor_msgs::ImageConstPtr& msg)
 //    cv_image_ = boost::make_shared<cv_bridge::CvImage>(*cv_bridge::toCvShare(msg, msg->encoding));
     threading();
     result_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(),cv_image_->encoding , cv_image_->image).toImageMsg());
-
+    prev_time_stamp_ = cur_time_stamp_;
 }
 
 
