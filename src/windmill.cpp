@@ -2,7 +2,7 @@
 
 void Windmill::drawBboxes(const cv::Mat &bgr, const std::vector<BoxInfo> &bboxes) {
 //    cv::Mat image = bgr.clone();
-    std::string label_array[4]={"Red","red_action","Blue","blue_action"};
+    std::string label_array[2]={"Red","Blue"};
     static int src_w = bgr.cols;
     static int src_h = bgr.rows;
     static float width_ratio = (float)src_w / (float)image_size_;
@@ -122,6 +122,8 @@ void Windmill::threading()
         else
             object_loss_ = true;
     }
+    else
+        object_loss_ = true;
 
     data.id = 10;
 

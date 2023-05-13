@@ -14,6 +14,7 @@
 #include <rm_msgs/TargetDetection.h>
 #include <rm_msgs/TargetDetectionArray.h>
 #include <ros/package.h>
+
 typedef struct HeadInfo {
     std::string cls_layer;
     std::string dis_layer;
@@ -70,6 +71,8 @@ public:
 
     void preProcess(cv::Mat &image, InferenceEngine::Blob::Ptr &blob);
 
+    bool distanceJudge(int cur_x, int cur_y, int predict_x, int predict_y);
+
     void decodeInfer(const float *&cls_pred, const float *&dis_pred, int stride,
                      double threshold,
                      std::vector<std::vector<BoxInfo>> &results);
@@ -95,11 +98,13 @@ public:
     int measurement_noise_;
     double mean_radian_;
     double radian_scale_;
+    double prev_radian_;
     int threshold_{};
     int min_area_threshold_{};
     int max_area_threshold_{};
     int prev_mean_x_;
     int prev_mean_y_;
+    int distance_threshold_;
     bool object_loss_;
     bool windmill_work_signal_;
     cv::KalmanFilter kalman_filter_;
@@ -115,7 +120,7 @@ public:
     ros::Publisher result_publisher_;
     ros::Publisher binary_publisher_;
     ros::Publisher point_publisher_;
-    int num_class_ = 4;
+    int num_class_ = 2;
     int image_size_ = 416;
     std::mutex mutex_;
 };

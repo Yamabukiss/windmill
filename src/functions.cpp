@@ -81,13 +81,12 @@ void Windmill::dynamicCallback(windmill::dynamicConfig &config)
     process_noise_=config.process_noise;
     measurement_noise_=config.measurement_noise;
     radian_scale_=config.radian_scale;
+    distance_threshold_=config.distance_threshold;
 
     cv::setIdentity(kalman_filter_.processNoiseCov, cv::Scalar::all(pow(10, -process_noise_)));
     cv::setIdentity(kalman_filter_.measurementNoiseCov, cv::Scalar::all(pow(10, -measurement_noise_)));
 
     ROS_INFO("Seted Complete");
-    ROS_INFO("process noise: %lf",pow(10, -process_noise_));
-    ROS_INFO("measure noise: %lf",pow(10, -measurement_noise_));
 }
 
 void Windmill::preProcess(cv::Mat &image, InferenceEngine::Blob::Ptr &blob) {
@@ -226,17 +225,17 @@ BoxInfo Windmill::disPred2Bbox(const float *&box_det, int label, double score,
 }
 
 void Windmill::nms(std::vector<BoxInfo> &input_boxes) {
-    for (auto it = input_boxes.begin(); it != input_boxes.end();)
-    {
-        if (it->label == 1 || it->label == 3)
-        {
-            it = input_boxes.erase(it);
-        }
-        else
-        {
-            ++it;
-        }
-    }
+//    for (auto it = input_boxes.begin(); it != input_boxes.end();)
+//    {
+//        if (it->label == 1 || it->label == 3)
+//        {
+//            it = input_boxes.erase(it);
+//        }
+//        else
+//        {
+//            ++it;
+//        }
+//    }
 
     std::sort(input_boxes.begin(), input_boxes.end(),
               [](BoxInfo a, BoxInfo b) { return a.score > b.score; });
@@ -246,10 +245,20 @@ void Windmill::nms(std::vector<BoxInfo> &input_boxes) {
 
 void Windmill::resetKalmanFilter()
 {
-    kalman_filter_.statePost.at<float>(0) = 0;
-    kalman_filter_.statePost.at<float>(1) = 0;
-    cv::setIdentity(kalman_filter_.errorCovPost, cv::Scalar::all(1));
+    kalman_filter_.statePost.at<float>(0) = prev_radian_ ;
+    kalman_filter_.statePost.at<float>(1) = prev_radian_ ;
+//    cv::setIdentity(kalman_filter_.errorCovPost, cv::Scalar::all(1));
 
+}
+
+bool Windmill::distanceJudge(int cur_x, int cur_y, int predict_x, int predict_y)
+{
+    double distance = sqrt(pow(cur_x - predict_x, 2) + pow(cur_y - predict_y, 2));
+
+    if (distance > distance_threshold_)
+        return true;
+    else
+        return false;
 }
 
 void Windmill::getAngle(int r_x, int r_y)
@@ -261,8 +270,7 @@ void Windmill::getAngle(int r_x, int r_y)
 
     if (object_loss_)
     {
-//        if (prev_time_stamp_ > 0 && mean_radian_ != 0)
-        if (prev_time_stamp_ > 0)
+        if (prev_radian_ > 0)
             resetKalmanFilter();
     }
     else
@@ -273,7 +281,7 @@ void Windmill::getAngle(int r_x, int r_y)
         int prev_vec_x = prev_mean_x_ - r_x;
         int prev_vec_y = prev_mean_y_ - r_y;
         double cos_theta = (cur_vec_x * prev_vec_x + cur_vec_y * prev_vec_y) / (sqrt(pow(cur_vec_x, 2) + pow(cur_vec_y, 2)) * sqrt(pow(prev_vec_x, 2) + pow(prev_vec_y, 2))) ;
-        double radian = acos(cos_theta) * radian_scale_;
+        double radian = acos(cos_theta);
 
         kalman_filter_.statePost.at<float>(1) = radian;
 
@@ -282,39 +290,31 @@ void Windmill::getAngle(int r_x, int r_y)
         measurement_.at<float>(0) = radian;
         kalman_filter_.correct(measurement_);
 
-        double predict_radian = kalman_filter_.statePost.at<float>(0);
+        double predict_radian = kalman_filter_.statePost.at<float>(0) * radian_scale_;
         int predict_vec_x = cos(predict_radian) * cur_vec_x  - sin(predict_radian) * cur_vec_y + r_x;
         int predict_vec_y = cos(predict_radian) * cur_vec_y  + sin(predict_radian) * cur_vec_x + r_y;
 
-        if (predict_vec_x < 0)
+        if (distanceJudge(mean_x, mean_y, prev_mean_x_, prev_mean_y_) || predict_vec_x < 0 )
+//        if (predict_vec_x < 0)
         {
             resetKalmanFilter();
-            kalman_filter_.statePost.at<float>(1) = radian;
 
             prediction = kalman_filter_.predict();
 
-            measurement_.at<float>(0) = radian;
-            kalman_filter_.correct(measurement_);
-            predict_radian = kalman_filter_.statePost.at<float>(0);
+//            measurement_.at<float>(0) = radian;
+//            kalman_filter_.correct(measurement_);
+            predict_radian = prediction.at<float>(0) * radian_scale_;
             predict_vec_x = cos(predict_radian) * cur_vec_x  - sin(predict_radian) * cur_vec_y + r_x;
             predict_vec_y = cos(predict_radian) * cur_vec_y  + sin(predict_radian) * cur_vec_x + r_y;
         }
-
-//        if (mean_radian_ == 0)
-//            mean_radian_ +=  radian;
-//        else
-//        {
-//            mean_radian_ += radian;
-//            mean_radian_ /= 2;
-//        }
         cv::circle(cv_image_->image,cv::Point (predict_vec_x, predict_vec_y),8,cv::Scalar (255,0,255),2);
 
-        int new_vec_x = cos(radian) * cur_vec_x  - sin(radian) * cur_vec_y + r_x;
-        int new_vec_y = cos(radian) * cur_vec_y  + sin(radian) * cur_vec_x + r_y;
-        cv::circle(cv_image_->image,cv::Point (new_vec_x, new_vec_y),3,cv::Scalar (255,255,0),2);
+//        int new_vec_x = cos(radian) * cur_vec_x  - sin(radian) * cur_vec_y + r_x;
+//        int new_vec_y = cos(radian) * cur_vec_y  + sin(radian) * cur_vec_x + r_y;
+//        cv::circle(cv_image_->image,cv::Point (new_vec_x, new_vec_y),3,cv::Scalar (255,255,0),2);
+        prev_radian_ = radian;
 
     }
-
     prev_mean_x_ = mean_x;
     prev_mean_y_ = mean_y;
 
