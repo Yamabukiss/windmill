@@ -104,10 +104,14 @@ void Windmill::threading()
 
         if (!box_result_vec_.empty())
         {
-            getAngle(cx, cy);
+            static float width_ratio = (float)cv_image_->image.cols / (float)image_size_;
+            static float height_ratio = (float)cv_image_->image.rows / (float)image_size_;
 
-            if (object_loss_)
-                object_loss_ = false;
+            auto point = kalman_filter_ptr_->getAngle(cx, cy, box_result_vec_, width_ratio, height_ratio);
+            cv::circle(cv_image_->image,point,8,cv::Scalar (255,255,0),cv::FILLED);
+
+            if (kalman_filter_ptr_->object_loss_)
+                kalman_filter_ptr_->object_loss_ = false;
 
             poly_array[0] = static_cast<int32_t>(box_result_vec_[0].x1) * 1440 / image_size_;
             poly_array[1] = static_cast<int32_t>(box_result_vec_[0].y1) * 1080 / image_size_;
@@ -120,10 +124,10 @@ void Windmill::threading()
         }
 
         else
-            object_loss_ = true;
+            kalman_filter_ptr_->object_loss_ = true;
     }
     else
-        object_loss_ = true;
+        kalman_filter_ptr_->object_loss_ = true;
 
     data.id = 10;
 
@@ -164,6 +168,7 @@ int main(int argc, char **argv) {
     std::cout << "start init model" << std::endl;
     Windmill detect;
     std::cout << "success" << std::endl;
+    detect.kalman_filter_ptr_ = new Kalman();
     detect.onInit();
 
     while (ros::ok())

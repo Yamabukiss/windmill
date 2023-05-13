@@ -14,6 +14,10 @@
 #include <rm_msgs/TargetDetection.h>
 #include <rm_msgs/TargetDetectionArray.h>
 #include <ros/package.h>
+#include "windmill/kalmanFilter.h"
+
+class Kalman;
+
 
 typedef struct HeadInfo {
     std::string cls_layer;
@@ -36,9 +40,9 @@ typedef struct BoxInfo {
 
 class Windmill {
 public:
-    Windmill();
+    Windmill() = default;
 
-    ~Windmill();
+    ~Windmill() = default;
 
     InferenceEngine::ExecutableNetwork network_;
     InferenceEngine::InferRequest infer_request_;
@@ -71,7 +75,6 @@ public:
 
     void preProcess(cv::Mat &image, InferenceEngine::Blob::Ptr &blob);
 
-    bool distanceJudge(int cur_x, int cur_y, int predict_x, int predict_y);
 
     void decodeInfer(const float *&cls_pred, const float *&dis_pred, int stride,
                      double threshold,
@@ -82,8 +85,7 @@ public:
 
     static void nms(std::vector<BoxInfo> &result);
 
-    void getAngle(int r_x, int r_y);
-    void resetKalmanFilter();
+//    void getAngle(int r_x, int r_y);
 
     void getPnP(const std::vector<cv::Point2f> &added_weights_points,int label);
 
@@ -94,21 +96,10 @@ public:
     double hull_bias_{};
     double prev_time_stamp_;
     double cur_time_stamp_;
-    int process_noise_;
-    int measurement_noise_;
-    double mean_radian_;
-    double radian_scale_;
-    double prev_radian_;
     int threshold_{};
     int min_area_threshold_{};
     int max_area_threshold_{};
-    int prev_mean_x_;
-    int prev_mean_y_;
-    int distance_threshold_;
-    bool object_loss_;
     bool windmill_work_signal_;
-    cv::KalmanFilter kalman_filter_;
-    cv::Mat measurement_;
     std::vector<cv::Point> r_contour_;
     std::vector<BoxInfo> box_result_vec_;
     std::vector<BoxInfo> prev_box_result_vec_;
@@ -123,4 +114,5 @@ public:
     int num_class_ = 2;
     int image_size_ = 416;
     std::mutex mutex_;
+    Kalman * kalman_filter_ptr_{};
 };

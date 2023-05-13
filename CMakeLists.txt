@@ -38,7 +38,8 @@ catkin_package(
         LIBRARIES ${PROJECT_NAME}
 )
 
-add_executable(${PROJECT_NAME} src/functions.cpp src/windmill.cpp)
+
+add_executable(${PROJECT_NAME} src/functions.cpp src/windmill.cpp src/kalmanFilter.cpp)
 
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
 
