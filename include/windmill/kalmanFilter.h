@@ -35,6 +35,8 @@ public:
     int prev_mean_y_;
     double radian_scale_;
     double prev_time_stamp_;
+    double prev_radian_;
+    double prev_delta2_t_;
     double cur_time_stamp_;
     cv::Mat measurement_;
     cv::KalmanFilter kalman_filter_;
