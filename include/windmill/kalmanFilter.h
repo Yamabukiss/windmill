@@ -11,13 +11,13 @@ public:
 
     Kalman()
     {
-        cv::KalmanFilter kf(2,2,0);
+        cv::KalmanFilter kf(2,1,0);
         kf.transitionMatrix = (cv::Mat_<float>(2, 2) << 1, 1, 0, 1);
         cv::setIdentity(kf.measurementMatrix);
         cv::setIdentity(kf.processNoiseCov, cv::Scalar::all(1e-5));
         cv::setIdentity(kf.measurementNoiseCov, cv::Scalar::all(1e-2));
         cv::setIdentity(kf.errorCovPost, cv::Scalar::all(1));
-        measurement_ = cv::Mat::zeros(2, 1, CV_32F);
+        measurement_ = cv::Mat::zeros(1, 1, CV_32F);
         prev_errorcov_ = kf.errorCovPost.clone();
         kalman_filter_ = kf;
         object_loss_ = true;
@@ -36,7 +36,7 @@ public:
     int prev_mean_y_;
     double radian_scale_;
     double prev_radian_;
-    double prev_delta2_t_;
+    double prev_delta_radian_;
     double cur_time_stamp_;
     double prev_time_stamp_;
     cv::Mat prev_errorcov_;

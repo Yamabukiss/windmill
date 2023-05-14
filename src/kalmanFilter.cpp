@@ -3,7 +3,7 @@
 void Kalman::resetKalmanFilter()
 {
     kalman_filter_.statePost.at<float>(0) = prev_radian_ ;
-    kalman_filter_.statePost.at<float>(1) = prev_delta2_t_ ;
+    kalman_filter_.statePost.at<float>(1) = prev_delta_radian_ ;
     kalman_filter_.errorCovPost = prev_errorcov_;
 //    cv::setIdentity(kalman_filter_.errorCovPost, cv::Scalar::all(1));
 }
@@ -44,7 +44,6 @@ cv::Point Kalman::getAngle(int r_x, int r_y, const std::vector<BoxInfo> &box_res
 
         cv::Mat prediction = kalman_filter_.predict();
         measurement_.at<float>(0) = radian;
-        measurement_.at<float>(1) = delta_t * delta_t;
         kalman_filter_.correct(measurement_);
 
         double predict_radian = kalman_filter_.statePost.at<float>(0) * radian_scale_;
@@ -61,7 +60,7 @@ cv::Point Kalman::getAngle(int r_x, int r_y, const std::vector<BoxInfo> &box_res
         }
 
         prev_radian_ = radian;
-        prev_delta2_t_ = delta_t * delta_t;
+        prev_delta_radian_ = kalman_filter_.statePost.at<float>(1);
         prev_errorcov_ = kalman_filter_.errorCovPost;
         prev_mean_x_ = mean_x;
         prev_mean_y_ = mean_y;
