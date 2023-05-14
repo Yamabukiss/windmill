@@ -94,8 +94,6 @@ public:
     double nms_thresh_{};
     double score_thresh_{};
     double hull_bias_{};
-    double prev_time_stamp_;
-    double cur_time_stamp_;
     int threshold_{};
     int min_area_threshold_{};
     int max_area_threshold_{};

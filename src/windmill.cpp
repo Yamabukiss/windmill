@@ -150,7 +150,7 @@ void Windmill::threading()
 //void Windmill::receiveFromCam(const sensor_msgs::ImageConstPtr& image)
 void Windmill::receiveFromCam(const sensor_msgs::ImageConstPtr& msg)
 {
-    cur_time_stamp_ = ros::Time::now().toSec();
+    kalman_filter_ptr_->cur_time_stamp_ = ros::Time::now().toSec();
     if (!windmill_work_signal_)
         return;
 //    cv_image_ = cv_bridge::toCvCopy(msg,sensor_msgs::image_encodings::RGB8);
@@ -158,7 +158,7 @@ void Windmill::receiveFromCam(const sensor_msgs::ImageConstPtr& msg)
 //    cv_image_ = boost::make_shared<cv_bridge::CvImage>(*cv_bridge::toCvShare(msg, msg->encoding));
     threading();
     result_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(),cv_image_->encoding , cv_image_->image).toImageMsg());
-    prev_time_stamp_ = cur_time_stamp_;
+    kalman_filter_ptr_->prev_time_stamp_ = kalman_filter_ptr_->cur_time_stamp_;
 }
 
 
