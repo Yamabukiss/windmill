@@ -18,6 +18,7 @@ public:
         cv::setIdentity(kf.measurementNoiseCov, cv::Scalar::all(1e-2));
         cv::setIdentity(kf.errorCovPost, cv::Scalar::all(1));
         measurement_ = cv::Mat::zeros(2, 1, CV_32F);
+        prev_errorcov_ = kf.errorCovPost.clone();
         kalman_filter_ = kf;
         object_loss_ = true;
     }
@@ -34,10 +35,11 @@ public:
     int prev_mean_x_;
     int prev_mean_y_;
     double radian_scale_;
-    double prev_time_stamp_;
     double prev_radian_;
     double prev_delta2_t_;
     double cur_time_stamp_;
+    double prev_time_stamp_;
+    cv::Mat prev_errorcov_;
     cv::Mat measurement_;
     cv::KalmanFilter kalman_filter_;
 
