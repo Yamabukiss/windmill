@@ -57,12 +57,30 @@ void Windmill::onInit()
 
 void Windmill::dynamicCallback(windmill::dynamicConfig &config)
 {
-    nms_thresh_=config.nms_thresh;
+    red_=config.red;
+    red_lower_hsv_h_=config.red_lower_hsv_h;
+    red_lower_hsv_s_=config.red_lower_hsv_s;
+    red_lower_hsv_v_=config.red_lower_hsv_v;
+    red_upper_hsv_h_=config.red_upper_hsv_h;
+    red_upper_hsv_s_=config.red_upper_hsv_s;
+    red_upper_hsv_v_=config.red_upper_hsv_v;
+
+    blue_lower_hsv_h_=config.blue_lower_hsv_h;
+    blue_lower_hsv_s_=config.blue_lower_hsv_s;
+    blue_lower_hsv_v_=config.blue_lower_hsv_v;
+    blue_upper_hsv_h_=config.blue_upper_hsv_h;
+    blue_upper_hsv_s_=config.blue_upper_hsv_s;
+    blue_upper_hsv_v_=config.blue_upper_hsv_v;
+
+    morph_type_ = config.morph_type;
+    morph_iterations_ = config.morph_iterations;
+    morph_size_=config.morph_size;
+
+
     score_thresh_=config.score_thresh;
     hull_bias_=config.hull_bias;
     min_area_threshold_=config.min_area_threshold;
     max_area_threshold_=config.max_area_threshold;
-    threshold_=config.threshold;
     kalman_filter_ptr_->process_noise_=config.process_noise;
     kalman_filter_ptr_->measurement_noise_=config.measurement_noise;
     kalman_filter_ptr_->radian_scale_=config.radian_scale;

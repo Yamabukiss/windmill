@@ -47,9 +47,16 @@ inline void Windmill::modelProcess(const cv::Mat& image)
 
 void Windmill::cvProcess(const cv::Mat& image)
 {
-    cv::Mat gray, threshold;
-    cv::cvtColor(image,gray,CV_BGR2GRAY);
-    cv::threshold(gray,threshold,threshold_,255,CV_THRESH_BINARY);
+    cv::Mat hsv, threshold;
+    cv::cvtColor(image, hsv, cv::COLOR_BGR2HSV);
+    if (red_)
+        cv::inRange(hsv,cv::Scalar(red_lower_hsv_h_,red_lower_hsv_s_,red_lower_hsv_v_),cv::Scalar(red_upper_hsv_h_,red_upper_hsv_s_,red_upper_hsv_v_),threshold);
+    else
+        cv::inRange(hsv,cv::Scalar(blue_lower_hsv_h_,blue_lower_hsv_s_,blue_lower_hsv_v_),cv::Scalar(blue_upper_hsv_h_,blue_upper_hsv_s_,blue_upper_hsv_v_),threshold);
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(1 + 2 * morph_size_, 1 + 2 * morph_size_),
+                                               cv::Point(-1, -1));
+    cv::morphologyEx(threshold, threshold, morph_type_, kernel, cv::Point(-1, -1), morph_iterations_);
+
     binary_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(),"mono8" , threshold).toImageMsg());
 
     std::vector<std::vector<cv::Point>> contours;

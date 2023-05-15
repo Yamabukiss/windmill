@@ -91,13 +91,29 @@ public:
 
     dynamic_reconfigure::Server<windmill::dynamicConfig> server_;
     dynamic_reconfigure::Server<windmill::dynamicConfig>::CallbackType callback_;
-    double nms_thresh_{};
     double score_thresh_{};
     double hull_bias_{};
-    int threshold_{};
     int min_area_threshold_{};
     int max_area_threshold_{};
     bool windmill_work_signal_;
+    int morph_type_;
+    int morph_iterations_;
+    int morph_size_;
+    bool red_;
+    int red_lower_hsv_h_;
+    int red_lower_hsv_s_;
+    int red_lower_hsv_v_;
+    int red_upper_hsv_h_;
+    int red_upper_hsv_s_;
+    int red_upper_hsv_v_;
+
+    int blue_lower_hsv_h_;
+    int blue_lower_hsv_s_;
+    int blue_lower_hsv_v_;
+    int blue_upper_hsv_h_;
+    int blue_upper_hsv_s_;
+    int blue_upper_hsv_v_;
+
     std::vector<cv::Point> r_contour_;
     std::vector<BoxInfo> box_result_vec_;
     std::vector<BoxInfo> prev_box_result_vec_;
