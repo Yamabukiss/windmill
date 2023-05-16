@@ -21,6 +21,7 @@ public:
         prev_errorcov_ = kf.errorCovPost.clone();
         kalman_filter_ = kf;
         object_loss_ = true;
+        radian_direction_ = 0;
     }
     ~Kalman() = default;
 
@@ -34,6 +35,7 @@ public:
     int distance_threshold_;
     int prev_mean_x_;
     int prev_mean_y_;
+    int radian_direction_;
     double radian_scale_;
     double prev_radian_;
     double prev_delta_radian_;
