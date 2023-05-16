@@ -51,7 +51,6 @@ void Windmill::onInit()
 
     cv::convexHull(contours[0],hull, true);
     r_contour_ = contours[0];
-    windmill_work_signal_ = true;
 }
 
 

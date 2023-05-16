@@ -11,7 +11,6 @@ void Windmill::drawBboxes(const cv::Mat &bgr, const std::vector<BoxInfo> &bboxes
     {
         for (size_t i = 0; i < bboxes.size(); i++) {
             const BoxInfo &bbox = bboxes[i];
-//            if (bbox.label==1 || bbox.label==3) continue;
             cv::Point2f center ((bbox.x1+bbox.x2+bbox.x3+bbox.x4)/4*width_ratio,(bbox.y1+bbox.y2+bbox.y3+bbox.y4)/4*height_ratio);
 
             std::vector<cv::Point2f> points_vec;

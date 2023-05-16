@@ -40,7 +40,7 @@ typedef struct BoxInfo {
 
 class Windmill {
 public:
-    Windmill() = default;
+    Windmill() : windmill_work_signal_(true){};
 
     ~Windmill() = default;
 
