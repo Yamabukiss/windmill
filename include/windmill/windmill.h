@@ -74,6 +74,7 @@ public:
 
     void preProcess(cv::Mat &image, InferenceEngine::Blob::Ptr &blob);
 
+    double getL2Distance(const cv::Point2f &p1, const cv::Point2f &p2);
 
     void decodeInfer(const float *&cls_pred, const float *&dis_pred, int stride,
                      double threshold,

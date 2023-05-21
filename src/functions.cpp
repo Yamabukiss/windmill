@@ -2,7 +2,7 @@
 void Windmill::onInit()
 {
     InferenceEngine::Core ie;
-    InferenceEngine::CNNNetwork model = ie.ReadNetwork(ros::package::getPath("windmill")+"/s_416_1.xml");
+    InferenceEngine::CNNNetwork model = ie.ReadNetwork(ros::package::getPath("windmill")+"/s_416_2.xml");
     // prepare input settings
     InferenceEngine::InputsDataMap inputs_map(model.getInputsInfo());
     input_name_ = inputs_map.begin()->first;
@@ -79,13 +79,6 @@ void Windmill::dynamicCallback(windmill::dynamicConfig &config)
     min_area_threshold_=config.min_area_threshold;
     max_area_threshold_=config.max_area_threshold;
     area_duty_=config.area_duty;
-//    kalman_filter_ptr_->process_noise_=config.process_noise;
-//    kalman_filter_ptr_->measurement_noise_=config.measurement_noise;
-//    kalman_filter_ptr_->radian_scale_=config.radian_scale;
-//    kalman_filter_ptr_->distance_threshold_=config.distance_threshold;
-
-//    cv::setIdentity(kalman_filter_ptr_->kalman_filter_.processNoiseCov, cv::Scalar::all(pow(10, -kalman_filter_ptr_->process_noise_)));
-//    cv::setIdentity(kalman_filter_ptr_->kalman_filter_.measurementNoiseCov, cv::Scalar::all(pow(10, -kalman_filter_ptr_->measurement_noise_)));
 
     ROS_INFO("Seted Complete");
 }
@@ -245,4 +238,10 @@ void Windmill::nms(std::vector<BoxInfo> &input_boxes) {
               [](BoxInfo a, BoxInfo b) { return a.score > b.score; });
     if (input_boxes.size() > 1)
         input_boxes.erase(input_boxes.begin()+1,input_boxes.end());
+}
+
+double Windmill::getL2Distance(const cv::Point2f &p1, const cv::Point2f &p2)
+{
+    return sqrt( pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2) );
+
 }

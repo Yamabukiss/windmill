@@ -25,22 +25,20 @@ void Windmill::drawBboxes(const cv::Mat &bgr, const std::vector<BoxInfo> &bboxes
             cv::line(bgr,points_vec[3],points_vec[4],color,1);
             cv::line(bgr,points_vec[4],points_vec[1],color,1);
             cv::circle(bgr,points_vec[0],3,color,2);
-//            cv::putText(bgr,label_array[bbox.label],cv::Point2f(std::max(float(0),points_vec[1].x-10),std::max(points_vec[1].y-10,float(0))),cv::FONT_HERSHEY_SCRIPT_SIMPLEX,1,color,2);
-//            cv::putText(bgr,std::to_string(bbox.score),cv::Point2f(std::max(float(0),points_vec[1].x-10),std::max(points_vec[1].y-10,float(0))),cv::FONT_HERSHEY_SCRIPT_SIMPLEX,1,color,2);
+            //            cv::putText(bgr,label_array[bbox.label],cv::Point2f(std::max(float(0),points_vec[1].x-10),std::max(points_vec[1].y-10,float(0))),cv::FONT_HERSHEY_SCRIPT_SIMPLEX,1,color,2);
+            //            cv::putText(bgr,std::to_string(bbox.score),cv::Point2f(std::max(float(0),points_vec[1].x-10),std::max(points_vec[1].y-10,float(0))),cv::FONT_HERSHEY_SCRIPT_SIMPLEX,1,color,2);
         }
     }
 
 }
 
-inline void Windmill::modelProcess(const cv::Mat& image)
-{
-//    cv::Mat resized_img;
-      cv::Mat tmp_image = image.clone();
-//    resizeUniform(image, resized_img, cv::Size(image_size_, image_size_));
+inline void Windmill::modelProcess(const cv::Mat& image) {
+  //    cv::Mat resized_img;
+  cv::Mat tmp_image = image.clone();
+  //    resizeUniform(image, resized_img, cv::Size(image_size_, image_size_));
 
-//    auto results = detect(resized_img, score_thresh_, nms_thresh_);
-    detect(tmp_image, score_thresh_);
-
+  //    auto results = detect(resized_img, score_thresh_, nms_thresh_);
+  detect(tmp_image, score_thresh_);
 }
 
 void Windmill::cvProcess(const cv::Mat& image)
@@ -66,23 +64,23 @@ void Windmill::cvProcess(const cv::Mat& image)
 
     for (auto& contour : contours)
     {
-        bool area_judge = cv::contourArea(contour) >= min_area_threshold_ && cv::contourArea(contour) < max_area_threshold_;
-        if (cv::matchShapes(contour,r_contour_,cv::CONTOURS_MATCH_I2,0) <= hull_bias_ && area_judge)
-        {
-            auto rect = cv::boundingRect(contour);
-            rect += cv::Point(0.25 * rect.width, 0.25 * rect.height);
-            rect -= cv::Size(0.25 * rect.width, 0.25 * rect.height);
-            auto mask = threshold(rect);
-            if (static_cast<double>(cv::countNonZero(mask)) / rect.area() >= area_duty_)
-            {
-//                ROS_INFO_STREAM(static_cast<float>(cv::countNonZero(mask)) / rect.area());
-//                cv::rectangle(image, rect, cv::Scalar(255, 0, 0), 2);
-//                cv::putText(image, std::to_string(static_cast<float>(cv::countNonZero(mask)) / rect.area()), rect.tl(), 1,1,cv::Scalar(255,0,0));
-                hull_vec_.push_back(contour);
-            }
-
+      bool area_judge = cv::contourArea(contour) >= min_area_threshold_ &&
+                        cv::contourArea(contour) < max_area_threshold_;
+      if (cv::matchShapes(contour,r_contour_,cv::CONTOURS_MATCH_I2,0) <= hull_bias_ && area_judge) {
+        auto rect = cv::boundingRect(contour);
+        rect += cv::Point(0.25 * rect.width, 0.25 * rect.height);
+        rect -= cv::Size(0.25 * rect.width, 0.25 * rect.height);
+        auto mask = threshold(rect);
+        if (static_cast<double>(cv::countNonZero(mask)) / rect.area() >=
+            area_duty_) {
+          //                ROS_INFO_STREAM(static_cast<float>(cv::countNonZero(mask))
+          //                / rect.area()); cv::rectangle(image, rect,
+          //                cv::Scalar(255, 0, 0), 2); cv::putText(image,
+          //                std::to_string(static_cast<float>(cv::countNonZero(mask))
+          //                / rect.area()), rect.tl(), 1,1,cv::Scalar(255,0,0));
+          hull_vec_.push_back(contour);
         }
-
+      }
     }
 
 }
@@ -103,43 +101,69 @@ void Windmill::threading()
     int32_t poly_array[8];
     int32_t r_array[2];
 
-    if (!hull_vec_.empty())
+    if (!hull_vec_.empty() && !box_result_vec_.empty())
     {
         std::sort(hull_vec_.begin(), hull_vec_.end(), [&](const auto &v1, const auto &v2){return cv::matchShapes(v1,r_contour_,cv::CONTOURS_MATCH_I2,0) < cv::matchShapes(v2,r_contour_,cv::CONTOURS_MATCH_I2,0);});
-        auto moment = cv::moments(hull_vec_[0]);
-        int cx = int(moment.m10 / moment.m00);
-        int cy = int(moment.m01/  moment.m00);
-        cv::circle(cv_image_->image, cv::Point(cx, cy),3, cv::Scalar(0, 255, 0), cv::FILLED);
-        r_array[0] = static_cast<int32_t>(cx) * 1440 / image_size_;
-        r_array[1] = static_cast<int32_t>(cy) * 1080 / image_size_;
-
-        if (!box_result_vec_.empty())
+        int cx, cy;
+        bool r_signal = false;
+        for (const auto &contour : hull_vec_)
         {
-            poly_array[0] = static_cast<int32_t>(box_result_vec_[0].x1) * 1440 / image_size_;
-            poly_array[1] = static_cast<int32_t>(box_result_vec_[0].y1) * 1080 / image_size_;
-            poly_array[2] = static_cast<int32_t>(box_result_vec_[0].x4) * 1440 / image_size_;
-            poly_array[3] = static_cast<int32_t>(box_result_vec_[0].y4) * 1080 / image_size_;
-            poly_array[4] = static_cast<int32_t>(box_result_vec_[0].x3) * 1440 / image_size_;
-            poly_array[5] = static_cast<int32_t>(box_result_vec_[0].y3) * 1080 / image_size_;
-            poly_array[6] = static_cast<int32_t>(box_result_vec_[0].x2) * 1440 / image_size_;
-            poly_array[7] = static_cast<int32_t>(box_result_vec_[0].y2) * 1080 / image_size_;
+            auto moment = cv::moments(contour);
+            cx = int(moment.m10 / moment.m00);
+            cy = int(moment.m01/  moment.m00);
+            auto p1 = cv::Point2f(box_result_vec_[0].x1, box_result_vec_[0].y1);
+            auto p2 = cv::Point2f(box_result_vec_[0].x2, box_result_vec_[0].y2);
+            auto p3 = cv::Point2f(box_result_vec_[0].x3, box_result_vec_[0].y3);
+            auto p4 = cv::Point2f(box_result_vec_[0].x4, box_result_vec_[0].y4);
+            auto r = cv::Point2f(cx, cy);
+            auto center = (p1 + p2 + p3 + p4) / 4;
+            auto ratio = getL2Distance((p1 + p2) / 2, (p3 + p4) / 2) / getL2Distance(center, r);
+            int p34_2_p12_vec_x = (p3.x + p4.x) / 2 - (p1.x + p2.x) / 2;
+            int p34_2_p12_vec_y = (p3.y + p4.y) / 2 - (p1.y + p2.y) / 2;
+
+            int r_2_p12_vec_x = r.x - (p1.x + p2.x) / 2;
+            int r_2_p12_vec_y = r.y - (p1.y + p2.y) / 2;
+            double cos_theta = (p34_2_p12_vec_x * r_2_p12_vec_x + p34_2_p12_vec_y * r_2_p12_vec_y) /
+                    (sqrt(pow(p34_2_p12_vec_x, 2) + pow(p34_2_p12_vec_y, 2)) * sqrt(pow(r_2_p12_vec_x, 2) + pow(r_2_p12_vec_y, 2)));
+            double radian = acos(cos_theta);
+            if ( ratio >= 0.39 && ratio <= 0.50 && radian <= 0.174) // 10 degrees
+            {
+//                cv::line(cv_image_->image,p1,p4,cv::Scalar (255, 0, 0),1);
+                cv::line(cv_image_->image,center,r,cv::Scalar (255, 0, 0),1);
+                r_signal = true;
+                break;
+            }
         }
+        if (!r_signal)
+            return;
+
+        cv::circle(cv_image_->image, cv::Point(cx, cy), 3,
+                   cv::Scalar(0, 255, 0), cv::FILLED);
+        r_array[0] = static_cast<int32_t>(cx * 1440 / image_size_);
+        r_array[1] = static_cast<int32_t>(cy * 1080 / image_size_);
+        poly_array[0] = static_cast<int32_t>(box_result_vec_[0].x1) * 1440 / image_size_;
+        poly_array[1] = static_cast<int32_t>(box_result_vec_[0].y1) * 1080 / image_size_;
+        poly_array[2] = static_cast<int32_t>(box_result_vec_[0].x4) * 1440 / image_size_;
+        poly_array[3] = static_cast<int32_t>(box_result_vec_[0].y4) * 1080 / image_size_;
+        poly_array[4] = static_cast<int32_t>(box_result_vec_[0].x3) * 1440 / image_size_;
+        poly_array[5] = static_cast<int32_t>(box_result_vec_[0].y3) * 1080 / image_size_;
+        poly_array[6] = static_cast<int32_t>(box_result_vec_[0].x2) * 1440 / image_size_;
+        poly_array[7] = static_cast<int32_t>(box_result_vec_[0].y2) * 1080 / image_size_;
+
+        data.id = 10;
+        data.pose.position.x = r_array[0];
+        data.pose.position.y = r_array[1];
+
+        memcpy(&data.pose.orientation.x, &poly_array[0],sizeof (int32_t) * 2);
+        memcpy(&data.pose.orientation.y, &poly_array[2],sizeof (int32_t) * 2);
+        memcpy(&data.pose.orientation.z, &poly_array[4],sizeof (int32_t) * 2);
+        memcpy(&data.pose.orientation.w, &poly_array[6],sizeof (int32_t) * 2);
+
+        data_array.detections.emplace_back(data);
 
     }
 
-    data.id = 10;
 
-    memcpy(&data.pose.orientation.x, &poly_array[0],sizeof (int32_t) * 2);
-    memcpy(&data.pose.orientation.y, &poly_array[2],sizeof (int32_t) * 2);
-    memcpy(&data.pose.orientation.z, &poly_array[4],sizeof (int32_t) * 2);
-    memcpy(&data.pose.orientation.w, &poly_array[6],sizeof (int32_t) * 2);
-
-    memcpy(&data.pose.position.x, &r_array[0],sizeof (int32_t));
-    memcpy(&data.pose.position.y, &r_array[1],sizeof (int32_t));
-
-
-
-    data_array.detections.emplace_back(data);
     data_array.header.stamp = cv_image_->header.stamp;
 
     point_publisher_.publish(data_array);
@@ -149,11 +173,13 @@ void Windmill::receiveFromCam(const sensor_msgs::ImageConstPtr& msg)
 {
     if (!windmill_work_signal_)
         return;
-//    cv_image_ = cv_bridge::toCvCopy(msg,"bgr8");
+//    cv_image_ = cv_bridge::toCvCopy(msg, "bgr8");
     cv_image_ = cv_bridge::toCvCopy(msg,sensor_msgs::image_encodings::RGB8);
-    cv::resize(cv_image_->image, cv_image_->image, cv::Size(image_size_, image_size_));
+    cv::resize(cv_image_->image, cv_image_->image, cv::Size(image_size_,image_size_));
     threading();
-    result_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(),"rgb8" , cv_image_->image).toImageMsg());
+    result_publisher_.publish(
+        cv_bridge::CvImage(std_msgs::Header(), "rgb8", cv_image_->image)
+            .toImageMsg());
 }
 
 
