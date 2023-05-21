@@ -49,16 +49,16 @@ cv::Point Kalman::getAngle(int r_x, int r_y, const std::vector<BoxInfo> &box_res
 
         double predict_radian = kalman_filter_.statePost.at<float>(0) * radian_scale_;
         int predict_vec_x, predict_vec_y;
-        if (radian_direction_ <= 0)
-        {
-            predict_vec_x = cos(predict_radian) * cur_vec_x  - sin(predict_radian) * cur_vec_y + r_x;
-            predict_vec_y = cos(predict_radian) * cur_vec_y  + sin(predict_radian) * cur_vec_x + r_y;
-        }
-        else // inverse
-        {
+//        if (radian_direction_ <= 0)
+//        {
+//            predict_vec_x = cos(predict_radian) * cur_vec_x  - sin(predict_radian) * cur_vec_y + r_x;
+//            predict_vec_y = cos(predict_radian) * cur_vec_y  + sin(predict_radian) * cur_vec_x + r_y;
+//        }
+//        else // inverse
+//        {
             predict_vec_x = cos(predict_radian) * cur_vec_x  + sin(predict_radian) * cur_vec_y + r_x;
             predict_vec_y = cos(predict_radian) * cur_vec_y  - sin(predict_radian) * cur_vec_x + r_y;
-        }
+//        }
 
         if (distanceJudge(mean_x, mean_y, prev_mean_x_, prev_mean_y_) || predict_vec_x < 0)
         {

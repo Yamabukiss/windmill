@@ -27,7 +27,7 @@ void Windmill::drawBboxes(const cv::Mat &bgr, const std::vector<BoxInfo> &bboxes
             cv::line(bgr,points_vec[3],points_vec[4],color,1);
             cv::line(bgr,points_vec[4],points_vec[1],color,1);
             cv::circle(bgr,points_vec[0],3,color,2);
-            cv::putText(bgr,label_array[bbox.label],cv::Point2f(std::max(float(0),points_vec[1].x-10),std::max(points_vec[1].y-10,float(0))),cv::FONT_HERSHEY_SCRIPT_SIMPLEX,1,color,2);
+//            cv::putText(bgr,label_array[bbox.label],cv::Point2f(std::max(float(0),points_vec[1].x-10),std::max(points_vec[1].y-10,float(0))),cv::FONT_HERSHEY_SCRIPT_SIMPLEX,1,color,2);
 //            cv::putText(bgr,std::to_string(bbox.score),cv::Point2f(std::max(float(0),points_vec[1].x-10),std::max(points_vec[1].y-10,float(0))),cv::FONT_HERSHEY_SCRIPT_SIMPLEX,1,color,2);
         }
     }
@@ -36,11 +36,12 @@ void Windmill::drawBboxes(const cv::Mat &bgr, const std::vector<BoxInfo> &bboxes
 
 inline void Windmill::modelProcess(const cv::Mat& image)
 {
-    cv::Mat resized_img;
-    resizeUniform(image, resized_img, cv::Size(image_size_, image_size_));
+//    cv::Mat resized_img;
+      cv::Mat tmp_image = image.clone();
+//    resizeUniform(image, resized_img, cv::Size(image_size_, image_size_));
 
 //    auto results = detect(resized_img, score_thresh_, nms_thresh_);
-    detect(resized_img, score_thresh_);
+    detect(tmp_image, score_thresh_);
 
 }
 
@@ -103,8 +104,6 @@ void Windmill::threading()
         auto moment = cv::moments(hull_vec_[0]);
         int cx = int(moment.m10 / moment.m00);
         int cy = int(moment.m01/  moment.m00);
-//        data.data.emplace_back(cx);
-//        data.data.emplace_back(cy);
         r_array[0] = static_cast<int32_t>(cx) * 1440 / image_size_;
         r_array[1] = static_cast<int32_t>(cy) * 1080 / image_size_;
 
@@ -114,7 +113,7 @@ void Windmill::threading()
             static float height_ratio = (float)cv_image_->image.rows / (float)image_size_;
 
             auto point = kalman_filter_ptr_->getAngle(cx, cy, box_result_vec_, width_ratio, height_ratio);
-            cv::circle(cv_image_->image,point,8,cv::Scalar (255,255,0),cv::FILLED);
+            cv::circle(cv_image_->image,point,4,cv::Scalar (255,255,0),cv::FILLED);
 
             if (kalman_filter_ptr_->object_loss_)
                 kalman_filter_ptr_->object_loss_ = false;
@@ -153,17 +152,16 @@ void Windmill::threading()
     point_publisher_.publish(data_array);
 }
 
-//void Windmill::receiveFromCam(const sensor_msgs::ImageConstPtr& image)
 void Windmill::receiveFromCam(const sensor_msgs::ImageConstPtr& msg)
 {
     kalman_filter_ptr_->cur_time_stamp_ = ros::Time::now().toSec();
     if (!windmill_work_signal_)
         return;
-//    cv_image_ = cv_bridge::toCvCopy(msg,sensor_msgs::image_encodings::RGB8);
+//    cv_image_ = cv_bridge::toCvCopy(msg,"bgr8");
     cv_image_ = cv_bridge::toCvCopy(msg,sensor_msgs::image_encodings::RGB8);
-//    cv_image_ = boost::make_shared<cv_bridge::CvImage>(*cv_bridge::toCvShare(msg, msg->encoding));
+    cv::resize(cv_image_->image, cv_image_->image, cv::Size(image_size_, image_size_));
     threading();
-    result_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(),cv_image_->encoding , cv_image_->image).toImageMsg());
+    result_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(),"rgb8" , cv_image_->image).toImageMsg());
     kalman_filter_ptr_->prev_time_stamp_ = kalman_filter_ptr_->cur_time_stamp_;
 }
 

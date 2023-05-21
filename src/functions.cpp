@@ -2,7 +2,7 @@
 void Windmill::onInit()
 {
     InferenceEngine::Core ie;
-    InferenceEngine::CNNNetwork model = ie.ReadNetwork(ros::package::getPath("windmill")+"/s_416.xml");
+    InferenceEngine::CNNNetwork model = ie.ReadNetwork(ros::package::getPath("windmill")+"/s_416_1.xml");
     // prepare input settings
     InferenceEngine::InputsDataMap inputs_map(model.getInputsInfo());
     input_name_ = inputs_map.begin()->first;
@@ -37,7 +37,7 @@ void Windmill::onInit()
 
 
     cv::Mat temp_r = cv::imread(ros::package::getPath("windmill")+"/r.png");
-//    cv::resize(temp_r,temp_r,cv::Size(320,320));
+    cv::resize(temp_r,temp_r,cv::Size(image_size_,image_size_));
     cv::Mat r;
     cv::cvtColor(temp_r,r,CV_BGR2GRAY);
     cv::Mat threshold_img;
@@ -159,7 +159,10 @@ void Windmill::detect(cv::Mat image, double score_threshold) {
             box_result_vec_.push_back(box);
         }
     }
-//    return dets;
+    std::sort(box_result_vec_.begin(), box_result_vec_.end(),[](BoxInfo a, BoxInfo b) { return a.score > b.score; });
+    if (box_result_vec_.size() > 1)
+        box_result_vec_.erase(box_result_vec_.begin()+1,box_result_vec_.end());
+
 }
 
 void Windmill::decodeInfer(const float *&cls_pred, const float *&dis_pred,
