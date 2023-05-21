@@ -1,7 +1,6 @@
 #include "windmill/windmill.h"
 
 void Windmill::drawBboxes(const cv::Mat &bgr, const std::vector<BoxInfo> &bboxes) {
-//    cv::Mat image = bgr.clone();
     std::string label_array[2]={"Red","Blue"};
     static int src_w = bgr.cols;
     static int src_h = bgr.rows;
@@ -20,7 +19,6 @@ void Windmill::drawBboxes(const cv::Mat &bgr, const std::vector<BoxInfo> &bboxes
             points_vec.emplace_back(cv::Point2f(bbox.x3* width_ratio,bbox.y3* height_ratio));
             points_vec.emplace_back(cv::Point2f(bbox.x4* width_ratio,bbox.y4* height_ratio));
 
-//            getPnP(points_vec,bbox.label);
             static cv::Scalar color = cv::Scalar(205,235,255);
             cv::line(bgr,points_vec[1],points_vec[2],color,1);
             cv::line(bgr,points_vec[2],points_vec[3],color,1);
@@ -68,13 +66,21 @@ void Windmill::cvProcess(const cv::Mat& image)
 
     for (auto& contour : contours)
     {
-        std::vector<cv::Point> hull;
-        cv::convexHull(contour,hull, true);
-        bool area_judge = cv::contourArea(hull) >= min_area_threshold_ && cv::contourArea(hull) < max_area_threshold_;
+        bool area_judge = cv::contourArea(contour) >= min_area_threshold_ && cv::contourArea(contour) < max_area_threshold_;
         if (cv::matchShapes(contour,r_contour_,cv::CONTOURS_MATCH_I2,0) <= hull_bias_ && area_judge)
         {
-//            cv::polylines(cv_image_->image,hull, true,cv::Scalar(0,255,0),2);
-            hull_vec_.push_back(hull);
+            auto rect = cv::boundingRect(contour);
+            rect += cv::Point(0.25 * rect.width, 0.25 * rect.height);
+            rect -= cv::Size(0.25 * rect.width, 0.25 * rect.height);
+            auto mask = threshold(rect);
+            if (static_cast<double>(cv::countNonZero(mask)) / rect.area() >= area_duty_)
+            {
+//                ROS_INFO_STREAM(static_cast<float>(cv::countNonZero(mask)) / rect.area());
+//                cv::rectangle(image, rect, cv::Scalar(255, 0, 0), 2);
+//                cv::putText(image, std::to_string(static_cast<float>(cv::countNonZero(mask)) / rect.area()), rect.tl(), 1,1,cv::Scalar(255,0,0));
+                hull_vec_.push_back(contour);
+            }
+
         }
 
     }
@@ -100,24 +106,15 @@ void Windmill::threading()
     if (!hull_vec_.empty())
     {
         std::sort(hull_vec_.begin(), hull_vec_.end(), [&](const auto &v1, const auto &v2){return cv::matchShapes(v1,r_contour_,cv::CONTOURS_MATCH_I2,0) < cv::matchShapes(v2,r_contour_,cv::CONTOURS_MATCH_I2,0);});
-        cv::polylines(cv_image_->image,hull_vec_[0], true,cv::Scalar(0,255,0),2);
         auto moment = cv::moments(hull_vec_[0]);
         int cx = int(moment.m10 / moment.m00);
         int cy = int(moment.m01/  moment.m00);
+        cv::circle(cv_image_->image, cv::Point(cx, cy),3, cv::Scalar(0, 255, 0), cv::FILLED);
         r_array[0] = static_cast<int32_t>(cx) * 1440 / image_size_;
         r_array[1] = static_cast<int32_t>(cy) * 1080 / image_size_;
 
         if (!box_result_vec_.empty())
         {
-            static float width_ratio = (float)cv_image_->image.cols / (float)image_size_;
-            static float height_ratio = (float)cv_image_->image.rows / (float)image_size_;
-
-            auto point = kalman_filter_ptr_->getAngle(cx, cy, box_result_vec_, width_ratio, height_ratio);
-            cv::circle(cv_image_->image,point,4,cv::Scalar (255,255,0),cv::FILLED);
-
-            if (kalman_filter_ptr_->object_loss_)
-                kalman_filter_ptr_->object_loss_ = false;
-
             poly_array[0] = static_cast<int32_t>(box_result_vec_[0].x1) * 1440 / image_size_;
             poly_array[1] = static_cast<int32_t>(box_result_vec_[0].y1) * 1080 / image_size_;
             poly_array[2] = static_cast<int32_t>(box_result_vec_[0].x4) * 1440 / image_size_;
@@ -128,11 +125,7 @@ void Windmill::threading()
             poly_array[7] = static_cast<int32_t>(box_result_vec_[0].y2) * 1080 / image_size_;
         }
 
-        else
-            kalman_filter_ptr_->object_loss_ = true;
     }
-    else
-        kalman_filter_ptr_->object_loss_ = true;
 
     data.id = 10;
 
@@ -154,7 +147,6 @@ void Windmill::threading()
 
 void Windmill::receiveFromCam(const sensor_msgs::ImageConstPtr& msg)
 {
-    kalman_filter_ptr_->cur_time_stamp_ = ros::Time::now().toSec();
     if (!windmill_work_signal_)
         return;
 //    cv_image_ = cv_bridge::toCvCopy(msg,"bgr8");
@@ -162,7 +154,6 @@ void Windmill::receiveFromCam(const sensor_msgs::ImageConstPtr& msg)
     cv::resize(cv_image_->image, cv_image_->image, cv::Size(image_size_, image_size_));
     threading();
     result_publisher_.publish(cv_bridge::CvImage(std_msgs::Header(),"rgb8" , cv_image_->image).toImageMsg());
-    kalman_filter_ptr_->prev_time_stamp_ = kalman_filter_ptr_->cur_time_stamp_;
 }
 
 
@@ -172,7 +163,6 @@ int main(int argc, char **argv) {
     std::cout << "start init model" << std::endl;
     Windmill detect;
     std::cout << "success" << std::endl;
-    detect.kalman_filter_ptr_ = new Kalman();
     detect.onInit();
 
     while (ros::ok())

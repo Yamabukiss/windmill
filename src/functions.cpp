@@ -43,13 +43,11 @@ void Windmill::onInit()
     cv::Mat threshold_img;
     cv::threshold(r,threshold_img,0,255,cv::THRESH_BINARY + cv::THRESH_OTSU);
     std::vector<std::vector<cv::Point>> contours;
-    std::vector<cv::Point> hull;
 
     cv::findContours(threshold_img,contours,cv::RETR_EXTERNAL,CV_CHAIN_APPROX_SIMPLE);
 
     std::sort(contours.begin(),contours.end(),[]( const std::vector<cv::Point> &vec1, const std::vector<cv::Point> &vec2 ) {return cv::contourArea(vec1) > cv::contourArea(vec2);} );
 
-    cv::convexHull(contours[0],hull, true);
     r_contour_ = contours[0];
 }
 
@@ -80,13 +78,14 @@ void Windmill::dynamicCallback(windmill::dynamicConfig &config)
     hull_bias_=config.hull_bias;
     min_area_threshold_=config.min_area_threshold;
     max_area_threshold_=config.max_area_threshold;
-    kalman_filter_ptr_->process_noise_=config.process_noise;
-    kalman_filter_ptr_->measurement_noise_=config.measurement_noise;
-    kalman_filter_ptr_->radian_scale_=config.radian_scale;
-    kalman_filter_ptr_->distance_threshold_=config.distance_threshold;
+    area_duty_=config.area_duty;
+//    kalman_filter_ptr_->process_noise_=config.process_noise;
+//    kalman_filter_ptr_->measurement_noise_=config.measurement_noise;
+//    kalman_filter_ptr_->radian_scale_=config.radian_scale;
+//    kalman_filter_ptr_->distance_threshold_=config.distance_threshold;
 
-    cv::setIdentity(kalman_filter_ptr_->kalman_filter_.processNoiseCov, cv::Scalar::all(pow(10, -kalman_filter_ptr_->process_noise_)));
-    cv::setIdentity(kalman_filter_ptr_->kalman_filter_.measurementNoiseCov, cv::Scalar::all(pow(10, -kalman_filter_ptr_->measurement_noise_)));
+//    cv::setIdentity(kalman_filter_ptr_->kalman_filter_.processNoiseCov, cv::Scalar::all(pow(10, -kalman_filter_ptr_->process_noise_)));
+//    cv::setIdentity(kalman_filter_ptr_->kalman_filter_.measurementNoiseCov, cv::Scalar::all(pow(10, -kalman_filter_ptr_->measurement_noise_)));
 
     ROS_INFO("Seted Complete");
 }

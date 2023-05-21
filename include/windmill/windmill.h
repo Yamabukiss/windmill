@@ -63,7 +63,6 @@ public:
     void modelProcess(const cv::Mat& image);
     void cvProcess(const cv::Mat& image);
     void threading();
-//    void receiveFromCam(const sensor_msgs::ImageConstPtr &image);
     void receiveFromCam(const sensor_msgs::ImageConstPtr &image);
 
 
@@ -85,9 +84,6 @@ public:
 
     static void nms(std::vector<BoxInfo> &result);
 
-//    void getAngle(int r_x, int r_y);
-
-    void getPnP(const std::vector<cv::Point2f> &added_weights_points,int label);
 
     dynamic_reconfigure::Server<windmill::dynamicConfig> server_;
     dynamic_reconfigure::Server<windmill::dynamicConfig>::CallbackType callback_;
@@ -113,6 +109,7 @@ public:
     int blue_upper_hsv_h_;
     int blue_upper_hsv_s_;
     int blue_upper_hsv_v_;
+    double area_duty_;
 
     std::vector<cv::Point> r_contour_;
     std::vector<BoxInfo> box_result_vec_;
@@ -128,5 +125,5 @@ public:
     int num_class_ = 2;
     int image_size_ = 416;
     std::mutex mutex_;
-    Kalman * kalman_filter_ptr_{};
+//    Kalman * kalman_filter_ptr_{};
 };
