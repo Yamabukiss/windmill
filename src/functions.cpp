@@ -27,8 +27,8 @@ void Windmill::onInit()
     network_ = ie.LoadNetwork(model, "CPU",config);
     infer_request_ = network_.CreateInferRequest();
 
-    img_subscriber_= nh_.subscribe("/hk_camera/image_raw", 1, &Windmill::receiveFromCam,this);
-//    img_subscriber_= nh_.subscribe("/image_rect", 1, &Windmill::receiveFromCam,this);
+//    img_subscriber_= nh_.subscribe("/hk_camera/image_raw", 1, &Windmill::receiveFromCam,this);
+    img_subscriber_= nh_.subscribe("/image_rect", 1, &Windmill::receiveFromCam,this);
     result_publisher_ = nh_.advertise<sensor_msgs::Image>("/result_publisher", 1);
     binary_publisher_ = nh_.advertise<sensor_msgs::Image>("/binary_publisher", 1);
     point_publisher_ = nh_.advertise<rm_msgs::TargetDetectionArray>("/prediction", 1);
