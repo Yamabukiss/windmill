@@ -2,7 +2,7 @@
 void Windmill::onInit()
 {
     InferenceEngine::Core ie;
-    InferenceEngine::CNNNetwork model = ie.ReadNetwork(ros::package::getPath("windmill")+"/xs_416.xml");
+    InferenceEngine::CNNNetwork model = ie.ReadNetwork(ros::package::getPath("windmill")+"/model/xs_416.xml");
     // prepare input settings
     InferenceEngine::InputsDataMap inputs_map(model.getInputsInfo());
     input_name_ = inputs_map.begin()->first;
