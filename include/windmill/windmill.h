@@ -14,9 +14,9 @@
 #include <rm_msgs/TargetDetection.h>
 #include <rm_msgs/TargetDetectionArray.h>
 #include <ros/package.h>
-#include "windmill/kalmanFilter.h"
-
-class Kalman;
+//#include "windmill/kalmanFilter.h"
+#include "nodelet/nodelet.h"
+#include <pluginlib/class_list_macros.h>
 
 
 typedef struct HeadInfo {
@@ -37,94 +37,99 @@ typedef struct BoxInfo {
     double score;
     int label;
 } BoxInfo;
+namespace windmill {
 
-class Windmill {
-public:
-    Windmill() : windmill_work_signal_(true){};
+    class Windmill : public nodelet::Nodelet {
+    public:
+        Windmill() : windmill_work_signal_(true) {};
 
-    ~Windmill() = default;
+        virtual ~Windmill() = default;
 
-    InferenceEngine::ExecutableNetwork network_;
-    InferenceEngine::InferRequest infer_request_;
-    // static bool hasGPU;
+        InferenceEngine::ExecutableNetwork network_;
+        InferenceEngine::InferRequest infer_request_;
+        // static bool hasGPU;
 
-    std::vector<HeadInfo> heads_info_{
-            // cls_pred|dis_pred|stride
-            {"transpose_0.tmp_0", "transpose_1.tmp_0", 8},
-            {"transpose_2.tmp_0", "transpose_3.tmp_0", 16},
-            {"transpose_4.tmp_0", "transpose_5.tmp_0", 32},
-            {"transpose_6.tmp_0", "transpose_7.tmp_0", 64},
-    };
+        std::vector<HeadInfo> heads_info_{
+                // cls_pred|dis_pred|stride
+                {"transpose_0.tmp_0", "transpose_1.tmp_0", 8},
+                {"transpose_2.tmp_0", "transpose_3.tmp_0", 16},
+                {"transpose_4.tmp_0", "transpose_5.tmp_0", 32},
+                {"transpose_6.tmp_0", "transpose_7.tmp_0", 64},
+        };
 
-    void detect(cv::Mat image, double score_threshold);
+        void detect(cv::Mat image, double score_threshold);
 
-    void onInit();
+        void onInit() override;
 
-    void modelProcess(const cv::Mat& image);
-    void cvProcess(const cv::Mat& image);
-    void threading();
-    void receiveFromCam(const sensor_msgs::ImageConstPtr &image);
+        void modelProcess(const cv::Mat &image);
 
+        void cvProcess(const cv::Mat &image);
 
-    void resizeUniform(const cv::Mat &src, cv::Mat &dst, const cv::Size &dst_size);
+        void threading();
 
-    void drawBboxes(const cv::Mat &bgr, const std::vector<BoxInfo> &bboxes);
-
-    void dynamicCallback(windmill::dynamicConfig &config);
-
-    void preProcess(cv::Mat &image, InferenceEngine::Blob::Ptr &blob);
-
-    double getL2Distance(const cv::Point2f &p1, const cv::Point2f &p2);
-
-    void decodeInfer(const float *&cls_pred, const float *&dis_pred, int stride,
-                     double threshold,
-                     std::vector<std::vector<BoxInfo>> &results);
-
-    BoxInfo disPred2Bbox(const float *&box_det, int label, double score, int x,
-                         int y, int stride);
-
-    static void nms(std::vector<BoxInfo> &result);
+        void receiveFromCam(const sensor_msgs::ImageConstPtr &image);
 
 
-    dynamic_reconfigure::Server<windmill::dynamicConfig> server_;
-    dynamic_reconfigure::Server<windmill::dynamicConfig>::CallbackType callback_;
-    double score_thresh_{};
-    double hull_bias_{};
-    int min_area_threshold_{};
-    int max_area_threshold_{};
-    bool windmill_work_signal_;
-    int morph_type_;
-    int morph_iterations_;
-    int morph_size_;
-    bool red_;
-    int red_lower_hsv_h_;
-    int red_lower_hsv_s_;
-    int red_lower_hsv_v_;
-    int red_upper_hsv_h_;
-    int red_upper_hsv_s_;
-    int red_upper_hsv_v_;
+        void resizeUniform(const cv::Mat &src, cv::Mat &dst, const cv::Size &dst_size);
 
-    int blue_lower_hsv_h_;
-    int blue_lower_hsv_s_;
-    int blue_lower_hsv_v_;
-    int blue_upper_hsv_h_;
-    int blue_upper_hsv_s_;
-    int blue_upper_hsv_v_;
-    double area_duty_;
+        void drawBboxes(const cv::Mat &bgr, const std::vector<BoxInfo> &bboxes);
 
-    std::vector<cv::Point> r_contour_;
-    std::vector<BoxInfo> box_result_vec_;
-    std::vector<BoxInfo> prev_box_result_vec_;
-    std::vector<std::vector<cv::Point>> hull_vec_;
-    std::string input_name_;
-    cv_bridge::CvImagePtr cv_image_;
-    ros::NodeHandle nh_;
-    ros::Subscriber img_subscriber_;
-    ros::Publisher result_publisher_;
-    ros::Publisher binary_publisher_;
-    ros::Publisher point_publisher_;
-    int num_class_ = 2;
-    int image_size_ = 416;
-    std::mutex mutex_;
+        void dynamicCallback(windmill::dynamicConfig &config);
+
+        void preProcess(cv::Mat &image, InferenceEngine::Blob::Ptr &blob);
+
+        double getL2Distance(const cv::Point2f &p1, const cv::Point2f &p2);
+
+        void decodeInfer(const float *&cls_pred, const float *&dis_pred, int stride,
+                         double threshold,
+                         std::vector<std::vector<BoxInfo>> &results);
+
+        BoxInfo disPred2Bbox(const float *&box_det, int label, double score, int x,
+                             int y, int stride);
+
+        static void nms(std::vector<BoxInfo> &result);
+
+
+        dynamic_reconfigure::Server<windmill::dynamicConfig> server_;
+        dynamic_reconfigure::Server<windmill::dynamicConfig>::CallbackType callback_;
+        double score_thresh_{};
+        double hull_bias_{};
+        int min_area_threshold_{};
+        int max_area_threshold_{};
+        bool windmill_work_signal_;
+        int morph_type_;
+        int morph_iterations_;
+        int morph_size_;
+        bool red_;
+        int red_lower_hsv_h_;
+        int red_lower_hsv_s_;
+        int red_lower_hsv_v_;
+        int red_upper_hsv_h_;
+        int red_upper_hsv_s_;
+        int red_upper_hsv_v_;
+
+        int blue_lower_hsv_h_;
+        int blue_lower_hsv_s_;
+        int blue_lower_hsv_v_;
+        int blue_upper_hsv_h_;
+        int blue_upper_hsv_s_;
+        int blue_upper_hsv_v_;
+        double area_duty_;
+
+        std::vector<cv::Point> r_contour_;
+        std::vector<BoxInfo> box_result_vec_;
+        std::vector<BoxInfo> prev_box_result_vec_;
+        std::vector<std::vector<cv::Point>> hull_vec_;
+        std::string input_name_;
+        cv_bridge::CvImagePtr cv_image_;
+        ros::NodeHandle nh_;
+        ros::Subscriber img_subscriber_;
+        ros::Publisher result_publisher_;
+        ros::Publisher binary_publisher_;
+        ros::Publisher point_publisher_;
+        int num_class_ = 2;
+        int image_size_ = 416;
+        std::mutex mutex_;
 //    Kalman * kalman_filter_ptr_{};
-};
+    };
+}

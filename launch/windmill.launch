@@ -1,0 +1,9 @@
+<launch>
+
+<node pkg="nodelet" type="nodelet" name="vision_manager"  args="manager" output="screen"/>
+
+<node pkg="nodelet" type="nodelet" name="windmill_detector" args="load windmill/windmill_detector vision_manager" output="screen">
+ <param name="model_path"  type="string" value="$(find windmill)/model/xs_416.xml"/>
+</node>
+
+</launch>

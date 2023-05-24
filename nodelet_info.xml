@@ -1,0 +1,5 @@
+<library path="lib/libwindmill">
+    <class name="windmill/windmill_detector" type="windmill::Windmill" base_class_type="nodelet::Nodelet">
+        <description>obj detection for windmill</description>
+    </class>
+</library>
