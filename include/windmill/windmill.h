@@ -13,6 +13,8 @@
 #include <thread>
 #include <rm_msgs/TargetDetection.h>
 #include <rm_msgs/TargetDetectionArray.h>
+#include <rm_msgs/StatusChange.h>
+#include <rm_msgs/TargetDetectionArray.h>
 #include <ros/package.h>
 //#include "windmill/kalmanFilter.h"
 #include "nodelet/nodelet.h"
@@ -41,7 +43,7 @@ namespace windmill {
 
     class Windmill : public nodelet::Nodelet {
     public:
-        Windmill() : windmill_work_signal_(true) {};
+        Windmill() : windmill_work_signal_(false) {};
 
         virtual ~Windmill() = default;
 
@@ -68,6 +70,8 @@ namespace windmill {
         void threading();
 
         void receiveFromCam(const sensor_msgs::ImageConstPtr &image);
+
+        bool receiveFromStatus(rm_msgs::StatusChange::Request &change, rm_msgs::StatusChange::Response &res);
 
 
         void resizeUniform(const cv::Mat &src, cv::Mat &dst, const cv::Size &dst_size);
@@ -124,6 +128,7 @@ namespace windmill {
         cv_bridge::CvImagePtr cv_image_;
         ros::NodeHandle nh_;
         ros::Subscriber img_subscriber_;
+        ros::ServiceServer status_subscriber_;
         ros::Publisher result_publisher_;
         ros::Publisher binary_publisher_;
         ros::Publisher point_publisher_;

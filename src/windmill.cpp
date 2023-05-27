@@ -26,7 +26,7 @@ namespace windmill {
                 cv::line(bgr, points_vec[4], points_vec[1], color, 1);
                 cv::circle(bgr, points_vec[0], 3, color, cv::FILLED);
 //                        cv::putText(bgr,label_array[bbox.label],cv::Point2f(std::max(float(0),points_vec[1].x-10),std::max(points_vec[1].y-10,float(0))),cv::FONT_HERSHEY_SCRIPT_SIMPLEX,1,color,2);
-                //            cv::putText(bgr,std::to_string(bbox.score),cv::Point2f(std::max(float(0),points_vec[1].x-10),std::max(points_vec[1].y-10,float(0))),cv::FONT_HERSHEY_SCRIPT_SIMPLEX,1,color,2);
+//                            cv::putText(bgr,std::to_string(bbox.score),cv::Point2f(std::max(float(0),points_vec[1].x-10),std::max(points_vec[1].y-10,float(0))),cv::FONT_HERSHEY_SCRIPT_SIMPLEX,1,color,2);
             }
         }
 
@@ -107,16 +107,22 @@ namespace windmill {
                 int cx = int(moment.m10 / moment.m00);
                 int cy = int(moment.m01 / moment.m00);
                 auto r = cv::Point2f(cx, cy);
-                int p34_2_p12_vec_x = (p3.x + p4.x) / 2 - (p1.x + p2.x) / 2;
-                int p34_2_p12_vec_y = (p3.y + p4.y) / 2 - (p1.y + p2.y) / 2;
-//
-                int r_2_p12_vec_x = r.x - (p1.x + p2.x) / 2;
-                int r_2_p12_vec_y = r.y - (p1.y + p2.y) / 2;
-                double cos_theta = (p34_2_p12_vec_x * r_2_p12_vec_x + p34_2_p12_vec_y * r_2_p12_vec_y) /
-                                   (sqrt(pow(p34_2_p12_vec_x, 2) + pow(p34_2_p12_vec_y, 2)) *
-                                    sqrt(pow(r_2_p12_vec_x, 2) + pow(r_2_p12_vec_y, 2)));
-                double radian = acos(cos_theta);
-                radian_vec.emplace_back(std::make_pair(r, radian));
+                auto tmp_point1 = (p1 + p2) / 2;
+                auto tmp_point2 = (p3 + p4) / 2;
+                double ratio = getL2Distance(tmp_point1, tmp_point2) / getL2Distance(tmp_point1, r);
+                if (ratio <=0.40 && ratio >=0.30)
+                {
+                    int p34_2_p12_vec_x = (p3.x + p4.x) / 2 - (p1.x + p2.x) / 2;
+                    int p34_2_p12_vec_y = (p3.y + p4.y) / 2 - (p1.y + p2.y) / 2;
+
+                    int r_2_p12_vec_x = r.x - (p1.x + p2.x) / 2;
+                    int r_2_p12_vec_y = r.y - (p1.y + p2.y) / 2;
+                    double cos_theta = (p34_2_p12_vec_x * r_2_p12_vec_x + p34_2_p12_vec_y * r_2_p12_vec_y) /
+                                       (sqrt(pow(p34_2_p12_vec_x, 2) + pow(p34_2_p12_vec_y, 2)) *
+                                        sqrt(pow(r_2_p12_vec_x, 2) + pow(r_2_p12_vec_y, 2)));
+                    double radian = acos(cos_theta);
+                    radian_vec.emplace_back(std::make_pair(r, radian));
+                }
             }
 
             std::sort(radian_vec.begin(), radian_vec.end(),
@@ -162,10 +168,22 @@ namespace windmill {
         cv::resize(cv_image_->image, cv_image_->image, cv::Size(image_size_, image_size_));
         threading();
         result_publisher_.publish(
-//        cv_bridge::CvImage(std_msgs::Header(), "rgb8", cv_image_->image)
-                cv_bridge::CvImage(std_msgs::Header(), "bgr8", cv_image_->image)
-                        .toImageMsg());
+//        cv_bridge::CvImage(std_msgs::Header(), "rgb8", cv_image_->image).toImageMsg());
+                cv_bridge::CvImage(std_msgs::Header(), "bgr8", cv_image_->image).toImageMsg());
     }
+
+    bool Windmill::receiveFromStatus(rm_msgs::StatusChange::Request &change,
+                                     rm_msgs::StatusChange::Response &res)
+     {
+         if (change.target == 0)
+             windmill_work_signal_ = false;
+         else
+             windmill_work_signal_ = true;
+
+         res.switch_is_success = true;
+         return true;
+     }
+
 
 }
 PLUGINLIB_EXPORT_CLASS(windmill::Windmill, nodelet::Nodelet)

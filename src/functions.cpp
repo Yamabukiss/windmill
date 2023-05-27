@@ -4,6 +4,7 @@ namespace windmill {
         std::string model_path = "";
         ros::NodeHandle nh = getMTPrivateNodeHandle();
         nh.getParam("model_path", model_path);
+        nh.getParam("red", red_);
         nh_ = ros::NodeHandle(nh, "windmill_node");
         InferenceEngine::Core ie;
         InferenceEngine::CNNNetwork model = ie.ReadNetwork(model_path);
@@ -30,8 +31,9 @@ namespace windmill {
         network_ = ie.LoadNetwork(model, "CPU", config);
         infer_request_ = network_.CreateInferRequest();
 
-//    img_subscriber_= nh_.subscribe("/hk_camera/camera/image_raw", 1, &Windmill::receiveFromCam,this);
-        img_subscriber_ = nh_.subscribe("/hk_camera/image_raw", 1, &Windmill::receiveFromCam, this);
+        img_subscriber_= nh_.subscribe("/hk_camera/camera/image_raw", 1, &Windmill::receiveFromCam,this);
+        this->status_subscriber_ = nh_.advertiseService("/buff_status_switch", &Windmill::receiveFromStatus,this);
+//        img_subscriber_ = nh_.subscribe("/hk_camera/image_raw", 1, &Windmill::receiveFromCam, this);
 //    img_subscriber_= nh_.subscribe("/image_rect", 1, &Windmill::receiveFromCam,this);
         result_publisher_ = nh_.advertise<sensor_msgs::Image>("/result_publisher", 1);
         binary_publisher_ = nh_.advertise<sensor_msgs::Image>("/binary_publisher", 1);
@@ -60,7 +62,6 @@ namespace windmill {
 
 
     void Windmill::dynamicCallback(windmill::dynamicConfig &config) {
-        red_ = config.red;
         red_lower_hsv_h_ = config.red_lower_hsv_h;
         red_lower_hsv_s_ = config.red_lower_hsv_s;
         red_lower_hsv_v_ = config.red_lower_hsv_v;

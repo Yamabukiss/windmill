@@ -1,9 +1,10 @@
 <launch>
 
-<node pkg="nodelet" type="nodelet" name="vision_manager"  args="manager" output="screen"/>
+<node pkg="nodelet" type="nodelet" name="vision_nodelet"  args="manager" output="screen"/>
 
-<node pkg="nodelet" type="nodelet" name="windmill_detector" args="load windmill/windmill_detector vision_manager" output="screen">
- <param name="model_path"  type="string" value="$(find windmill)/model/xs_416.xml"/>
+<node pkg="nodelet" type="nodelet" name="windmill_detector" args="load windmill/windmill_detector vision_nodelet" output="screen">
+ <param name="model_path"  type="string" value="$(find windmill)/model/xs_416_4.xml"/>
+ <param name="red"  type="bool" value="true"/>
 </node>
 
 </launch>
